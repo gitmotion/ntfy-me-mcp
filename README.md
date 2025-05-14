@@ -25,7 +25,8 @@ The server includes intelligent features like automatic URL detection for creati
 |------|------|
 | Glama.ai | <a href="https://glama.ai/mcp/servers/@gitmotion/ntfy-me-mcp"><img width="250" src="https://glama.ai/mcp/servers/@gitmotion/ntfy-me-mcp/badge" alt="ntfy-me-mcp MCP server" /></a> |
 | Smithery.ai | [![smithery badge](https://smithery.ai/badge/@gitmotion/ntfy-me-mcp)](https://smithery.ai/server/@gitmotion/ntfy-me-mcp) |
-| MseeP.ai    | [![MseeP.ai Security Assessment Badge](https://mseep.net/pr/gitmotion-ntfy-me-mcp-badge.png)](https://mseep.ai/app/gitmotion-ntfy-me-mcp)
+| MseeP.ai    | <a href="https://mseep.ai/app/gitmotion-ntfy-me-mcp"><img width="150" src="https://mseep.net/pr/gitmotion-ntfy-me-mcp-badge.png" alt="ntfy-me-mc-mseepai" /></a>
+
 ## Table of Contents
 
 - [Features](#features)
