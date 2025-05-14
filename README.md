@@ -1,5 +1,3 @@
-[![MseeP.ai Security Assessment Badge](https://mseep.net/pr/gitmotion-ntfy-me-mcp-badge.png)](https://mseep.ai/app/gitmotion-ntfy-me-mcp)
-
 # 📤 ntfy-me-mcp
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.8.2-blue.svg?logo=typescript)](https://www.typescriptlang.org/)
 [![Model Context Protocol](https://img.shields.io/badge/MCP-1.8.0-green.svg?logo=anthropic)](https://modelcontextprotocol.io/)
@@ -27,7 +25,7 @@ The server includes intelligent features like automatic URL detection for creati
 |------|------|
 | Glama.ai | <a href="https://glama.ai/mcp/servers/@gitmotion/ntfy-me-mcp"><img width="250" src="https://glama.ai/mcp/servers/@gitmotion/ntfy-me-mcp/badge" alt="ntfy-me-mcp MCP server" /></a> |
 | Smithery.ai | [![smithery badge](https://smithery.ai/badge/@gitmotion/ntfy-me-mcp)](https://smithery.ai/server/@gitmotion/ntfy-me-mcp) |
-
+| MseeP.ai    | [![MseeP.ai Security Assessment Badge](https://mseep.net/pr/gitmotion-ntfy-me-mcp-badge.png)](https://mseep.ai/app/gitmotion-ntfy-me-mcp)
 ## Table of Contents
 
 - [Features](#features)
