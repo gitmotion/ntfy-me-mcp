@@ -1,4 +1,5 @@
 # <img src="https://m2tg1pnwn0.ufs.sh/f/GMqNN8nd9I8l9tUbmif1CnFX8Baqr7mHeicYu0AULDyNVWJE" width=30 /> ntfy-me-mcp
+
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.8.2-blue.svg?logo=typescript)](https://www.typescriptlang.org/)
 [![Model Context Protocol](https://img.shields.io/badge/MCP-1.8.0-green.svg?logo=anthropic)](https://modelcontextprotocol.io/)
 [![NPM Version](https://img.shields.io/npm/v/ntfy-me-mcp.svg?logo=npm&color=orange)](https://www.npmjs.com/package/ntfy-me-mcp)
@@ -6,7 +7,7 @@
 [![License](https://img.shields.io/badge/license-GPL--3.0-blue.svg)](LICENSE)
 [![GitHub](https://img.shields.io/github/stars/gitmotion/ntfy-me-mcp?style=social)](https://github.com/gitmotion/ntfy-me-mcp)
 <a href="https://www.buymeacoffee.com/gitmotion" target="_blank" rel="noopener noreferrer">
-  <img src="https://www.buymeacoffee.com/assets/img/custom_images/yellow_img.png" alt="Buy me a coffee" width="105px" />
+<img src="https://www.buymeacoffee.com/assets/img/custom_images/yellow_img.png" alt="Buy me a coffee" width="105px" />
 </a>
 
 > A streamlined Model Context Protocol (MCP) server for sending notifications via ntfy service (public or selfhosted with token support) 📲
@@ -21,11 +22,11 @@ The server includes intelligent features like automatic URL detection for creati
 
 ### Available via:
 
-| Name | Link / Badge |
-|------|------|
-| Glama.ai | <a href="https://glama.ai/mcp/servers/@gitmotion/ntfy-me-mcp"><img width="250" src="https://glama.ai/mcp/servers/@gitmotion/ntfy-me-mcp/badge" alt="ntfy-me-mcp MCP server" /></a> |
-| Smithery.ai | [![smithery badge](https://smithery.ai/badge/@gitmotion/ntfy-me-mcp)](https://smithery.ai/server/@gitmotion/ntfy-me-mcp) |
-| MseeP.ai    | <a href="https://mseep.ai/app/gitmotion-ntfy-me-mcp"><img width="150" src="https://mseep.net/pr/gitmotion-ntfy-me-mcp-badge.png" alt="ntfy-me-mc-mseepai" /></a>
+| Name        | Link / Badge                                                                                                                                                                       |
+| ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Glama.ai    | <a href="https://glama.ai/mcp/servers/@gitmotion/ntfy-me-mcp"><img width="250" src="https://glama.ai/mcp/servers/@gitmotion/ntfy-me-mcp/badge" alt="ntfy-me-mcp MCP server" /></a> |
+| Smithery.ai | [![smithery badge](https://smithery.ai/badge/@gitmotion/ntfy-me-mcp)](https://smithery.ai/server/@gitmotion/ntfy-me-mcp)                                                           |
+| MseeP.ai    | <a href="https://mseep.ai/app/gitmotion-ntfy-me-mcp"><img width="150" src="https://mseep.net/pr/gitmotion-ntfy-me-mcp-badge.png" alt="ntfy-me-mc-mseepai" /></a>                   |
 
 ## Table of Contents
 
@@ -49,18 +50,18 @@ The server includes intelligent features like automatic URL detection for creati
 - [Configuration](#configuration)
   - [Environment Variables](#environment-variables)
 - [Usage](#usage)
-    - [Authentication](#authentication)
-    - [Setting Up the Notification Receiver](#setting-up-the-notification-receiver)
-    - [Sending Notifications (ntfy_me tool)](#sending-notifications-ntfy_me-tool)
-      - [Using Natural Language](#using-natural-language)
-      - [Message Parameters](#message-parameters)
-      - [Action Links](#action-links)
-      - [Emoji Shortcodes](#emoji-shortcodes)
-      - [Markdown Formatting](#markdown-formatting)
-    - [Retrieving Messages (ntfy_me_fetch tool)](#retrieving-messages-ntfy_me_fetch-tool)
-      - [Using Natural Language](#using-natural-language-1)
-      - [Message Parameters](#message-parameters-1)
-      - [Examples](#examples)
+  - [Authentication](#authentication)
+  - [Setting Up the Notification Receiver](#setting-up-the-notification-receiver)
+  - [Sending Notifications (ntfy_me tool)](#sending-notifications-ntfy_me-tool)
+    - [Using Natural Language](#using-natural-language)
+    - [Message Parameters](#message-parameters)
+    - [Action Links](#action-links)
+    - [Emoji Shortcodes](#emoji-shortcodes)
+    - [Markdown Formatting](#markdown-formatting)
+  - [Retrieving Messages (ntfy_me_fetch tool)](#retrieving-messages-ntfy_me_fetch-tool)
+    - [Using Natural Language](#using-natural-language-1)
+    - [Message Parameters](#message-parameters-1)
+    - [Examples](#examples)
   - [Development](#development)
     - [Building from Source](#building-from-source)
 - [License](#license)
@@ -79,6 +80,7 @@ The server includes intelligent features like automatic URL detection for creati
 - 🌐 **Self-hosted Support**: Works with both ntfy.sh and self-hosted ntfy instances
 
 ### (Coming soon...)
+
 - 📨 **Email**: Send notifications to email (requires ntfy email server configuration)
 - 🔗 **Click urls**: Ability to customize click urls
 - 🖼️ **Image urls**: Intelligent image url detection to automatically include image urls in messages and notifications
@@ -87,6 +89,7 @@ The server includes intelligent features like automatic URL detection for creati
 ## Quickstart - MCP Server Configuration
 
 ### NPM / NPX (Recommended Method)
+
 - Requires npm / npx installed on your system.
 - This method is recommended for most users as it provides a simple & lightweight method to set up the server.
 
@@ -159,11 +162,13 @@ With this setup, VS Code will prompt you for the token when starting the server 
 ## Docker
 
 ### Using with MCP in Docker
+
 - Requires Docker installed on your system.
 - This method is useful for running the server in a containerized environment.
 - You can use the official Docker images available on Docker Hub or GitHub Container Registry.
 
 Docker Images:
+
 - `gitmotion/ntfy-me-mcp:latest` (Docker Hub)
 - `ghcr.io/gitmotion/ntfy-me-mcp:latest` (GitHub Container Registry)
 
@@ -185,7 +190,7 @@ In your MCP configuration (e.g., VS Code settings.json):
         "-e",
         "NTFY_TOKEN",
         "-e",
-        "PROTECTED_TOPIC",         
+        "PROTECTED_TOPIC",
         "gitmotion/ntfy-me-mcp", // OR use ghcr.io/gitmotion/ntfy-me-mcp:latest
       ],
       "env": {
@@ -271,7 +276,7 @@ When configuring your MCP to use a locally built version, specify the node comma
     "command": "node",
     "args": ["/path/to/ntfy-mcp/build/index.js"],
     "env": {
-      "NTFY_TOPIC": "your-topic-name",
+      "NTFY_TOPIC": "your-topic-name"
       //"NTFY_URL": "https://your-ntfy-server.com", // Use if using a self-hosted server
       //"NTFY_TOKEN": "your-auth-token" // Use if using a protected topic/server
     }
@@ -282,6 +287,7 @@ When configuring your MCP to use a locally built version, specify the node comma
 Remember to use the absolute path to your build/index.js file in the args array.
 
 ### Option 5: MCP Marketplace installations
+
 #### Installing via Smithery
 
 To install ntfy-me-mcp for Claude Desktop automatically via [Smithery](https://smithery.ai/server/@gitmotion/ntfy-me-mcp):
@@ -342,6 +348,7 @@ This section covers all functionality related to sending notifications using the
 #### Using Natural Language
 
 When working with your AI assistant, you can use natural phrases like:
+
 ```
 "Send me a notification when the build is complete"
 "Notify me when the task is done"
@@ -354,16 +361,17 @@ When working with your AI assistant, you can use natural phrases like:
 
 The tool accepts these parameters:
 
-| Parameter | Description | Required |
-|-----------|-------------|----------|
-| taskTitle | The notification title | Yes |
-| taskSummary | The notification body | Yes |
-| priority | Message priority: min, low, default, high, max | No |
-| tags | Array of notification tags (supports emoji shortcodes) | No |
-| markdown | Boolean to enable markdown formatting (true/false) | No |
-| actions | Array of view action objects for clickable links | No |
+| Parameter   | Description                                            | Required |
+| ----------- | ------------------------------------------------------ | -------- |
+| taskTitle   | The notification title                                 | Yes      |
+| taskSummary | The notification body                                  | Yes      |
+| priority    | Message priority: min, low, default, high, max         | No       |
+| tags        | Array of notification tags (supports emoji shortcodes) | No       |
+| markdown    | Boolean to enable markdown formatting (true/false)     | No       |
+| actions     | Array of view action objects for clickable links       | No       |
 
 Example:
+
 ```javascript
 {
   taskTitle: "Code Generation Complete",
@@ -377,12 +385,14 @@ This will send a high-priority notification with a checkmark emoji.
 
 #### Action Links
 
-You can add clickable action buttons to your notifications using the `actions` parameter, or let the server automatically detect URLs in your message. 
+You can add clickable action buttons to your notifications using the `actions` parameter, or let the server automatically detect URLs in your message.
 
 ##### Automatic URL Detection
-When URLs are present in your message body, the server automatically creates up to 3 view actions (ntfy's maximum limit) from the first detected URLs. This makes it easy to include clickable links without manually specifying the actions array.
+
+When URLs are present in the message body, the server automatically creates up to 3 view actions (ntfy's maximum limit) from the first detected URLs. This makes it easy to include clickable links without manually specifying the actions array.
 
 For example, this message:
+
 ```javascript
 {
   taskTitle: "Build Complete",
@@ -393,14 +403,15 @@ For example, this message:
 Will automatically generate view actions for both URLs, making them easily clickable in the notification.
 
 ##### Manual Action Configuration
+
 For more control, you can manually specify actions:
 
-| Property | Description | Required |
-|----------|-------------|----------|
-| action | Must be "view" | Yes |
-| label | Button text to display | Yes |
-| url | URL to open when clicked | Yes |
-| clear | Whether to clear notification on click (optional) | No |
+| Property | Description                                       | Required |
+| -------- | ------------------------------------------------- | -------- |
+| action   | Must be "view"                                    | Yes      |
+| label    | Button text to display                            | Yes      |
+| url      | URL to open when clicked                          | Yes      |
+| clear    | Whether to clear notification on click (optional) | No       |
 
 Example with action links:
 
@@ -430,7 +441,7 @@ Example with action links:
 
 You can use emoji shortcodes in your tags for visual indicators:
 
-- `warning` → ⚠️ 
+- `warning` → ⚠️
 - `check` → ✅
 - `rocket` → 🚀
 - `tada` → 🎉
@@ -442,17 +453,21 @@ See the [full list of supported emoji shortcodes](https://docs.ntfy.sh/emojis/).
 Your notifications support rich markdown formatting with intelligent detection! When you include markdown syntax in your `taskSummary`, the server automatically detects it and enables markdown parsing - no need to set `markdown: true` explicitly.
 
 ##### Automatic Detection
+
 The server checks for common markdown patterns like:
+
 - Headers (#, ##, etc.)
-- Lists (-, *, numbers)
+- Lists (-, \*, numbers)
 - Code blocks (```)
 - Links ([text](url))
-- Bold/italic (*text*, **text**)
+- Bold/italic (_text_, **text**)
 
 When these patterns are detected, markdown parsing is automatically enabled for the message.
 
 ##### Manual Override
+
 While automatic detection works in most cases, you can still explicitly control markdown parsing:
+
 ```javascript
 {
   taskTitle: "Task Complete",
@@ -468,6 +483,7 @@ This section covers all functionality related to fetching and filtering messages
 #### Using Natural Language
 
 AI assistants understand various ways to request message fetching:
+
 ```
 "Show me my recent notifications"
 "Get messages from the last hour"
@@ -481,26 +497,28 @@ AI assistants understand various ways to request message fetching:
 
 The tool accepts these parameters:
 
-| Parameter | Description | Required |
-|-----------|-------------|----------|
-| ntfyTopic | Topic to fetch messages from (defaults to NTFY_TOPIC env var) | No |
-| since | How far back to retrieve messages ('10m', '1h', '1d', timestamp, message ID, or 'all') | No |
-| messageId | Find a specific message by its ID | No |
-| messageText | Find messages containing exact text content | No |
-| messageTitle | Find messages with exact title/subject | No |
-| priorities | Find messages with specific priority levels | No |
-| tags | Find messages with specific tags | No |
+| Parameter    | Description                                                                            | Required |
+| ------------ | -------------------------------------------------------------------------------------- | -------- |
+| ntfyTopic    | Topic to fetch messages from (defaults to NTFY_TOPIC env var)                          | No       |
+| since        | How far back to retrieve messages ('10m', '1h', '1d', timestamp, message ID, or 'all') | No       |
+| messageId    | Find a specific message by its ID                                                      | No       |
+| messageText  | Find messages containing exact text content                                            | No       |
+| messageTitle | Find messages with exact title/subject                                                 | No       |
+| priorities   | Find messages with specific priority levels                                            | No       |
+| tags         | Find messages with specific tags                                                       | No       |
 
 #### Examples
 
 1. **Fetch Recent Messages**
+
 ```javascript
 {
-  since: "30m"  // Get messages from last 30 minutes
+  since: "30m"; // Get messages from last 30 minutes
 }
 ```
 
 2. **Filter by Title and Priority**
+
 ```javascript
 {
   messageTitle: "Build Complete",
@@ -510,6 +528,7 @@ The tool accepts these parameters:
 ```
 
 3. **Search Different Topic with Tags**
+
 ```javascript
 {
   ntfyTopic: "updates",
@@ -519,13 +538,15 @@ The tool accepts these parameters:
 ```
 
 4. **Find Specific Message**
+
 ```javascript
 {
-  messageId: "xxxxXXXXxxxx"
+  messageId: "xxxxXXXXxxxx";
 }
 ```
 
 Messages are returned with full details including:
+
 - Message ID and timestamp
 - Topic and title
 - Content and priority
@@ -534,7 +555,7 @@ Messages are returned with full details including:
 
 > **Note**: Message history availability depends on your ntfy server's cache settings. The public ntfy.sh server typically caches messages for 12 hours.
 
-## Development
+## Development & Contributions
 
 ### Building from Source
 
@@ -551,7 +572,19 @@ This project is licensed under the GNU General Public License v3.0 - see the [LI
 
 ## Contributing
 
-Contributions are welcome! Please feel free to submit a Pull Request.
+Contributions are welcome! Please follow these guidelines:
+
+- Point your pull requests to the `dev` or `testing` branches (not `main`).
+- For all logging, use the `Logger` class abstraction:
+  - Replace any `console.log`, `console.warn`, or `console.error` with `logger.info`, `logger.warn`, or `logger.error`.
+- Ensure your code is clean, well-documented, and passes all tests.
+- Clearly describe your changes in the PR description.
+- For local testing:
+  - Build the project with `npm run build`.
+  - Run the server locally using `npm start` or `node build/index.js`.
+  - Test your changes before submitting a PR.
+
+Thank you for helping improve ntfy-me-mcp!
 
 ---
 

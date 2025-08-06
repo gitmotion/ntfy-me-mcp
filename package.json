@@ -1,6 +1,6 @@
 {
   "name": "ntfy-me-mcp",
-  "version": "1.3.4",
+  "version": "1.3.5",
   "description": "An ntfy MCP server for sending ntfy notifications to your self-hosted ntfy server from AI Agents 📤 (supports secure token auth & more - use with npx or docker!)",
   "keywords": [
     "ntfy",
