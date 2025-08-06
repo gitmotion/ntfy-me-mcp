@@ -36,7 +36,7 @@ async function initializeServer() {
   
   // Prompt for token if topic is protected and no token is provided
   if (PROTECTED_TOPIC && !NTFY_TOKEN) {
-    console.log(`Topic '${NTFY_TOPIC}' is marked as protected and requires authentication.`);
+    console.error(`Topic '${NTFY_TOPIC}' is marked as protected and requires authentication.`);
     try {
       const response = await prompts({
         type: 'password',
@@ -54,14 +54,14 @@ async function initializeServer() {
         console.error('No token provided for protected topic. Exiting.');
         process.exit(1);
       }
-      console.log('Token provided. Proceeding with authentication.');
+      console.error('Token provided. Proceeding with authentication.');
     } catch (error) {
       console.error('Error while prompting for token:', error);
       process.exit(1);
     }
   } else if (!PROTECTED_TOPIC) {
     // For non-protected topics, log that we're assuming it's public
-    console.log(`Topic '${NTFY_TOPIC}' is marked as public. No authentication required.`);
+    console.error(`Topic '${NTFY_TOPIC}' is marked as public. No authentication required.`);
   }
 
   // Create the MCP server
@@ -139,7 +139,7 @@ async function initializeServer() {
         // Remove any newlines from endpoint string
         const cleanEndpoint = endpoint.trim();
         
-        console.log(
+        console.error(
           `Sending notification to ${cleanEndpoint}` +
           `${shouldUseMarkdown ? " with Markdown formatting" : ""}` +
           `${viewActions.length > 0 ? ` and ${viewActions.length} view action(s)` : ""}`
