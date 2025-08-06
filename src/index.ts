@@ -274,7 +274,7 @@ async function initializeServer() {
   const transport = new StdioServerTransport();
   server
     .connect(transport)
-    .then(() => console.log("ntfy-me-mcp running on stdio"))
+    .then(() => console.error("ntfy-me-mcp running on stdio"))
     .catch((err) => console.error("Failed to start server:", err));
 }
 
