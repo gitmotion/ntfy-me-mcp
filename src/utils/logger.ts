@@ -11,14 +11,14 @@ export class Logger {
   }
 
   public info(message: string): void {
-    console.error(`[INFO]: ${message}`);
+    console.error(`[NTFYME-LOG-INFO]: ${message}`);
   }
 
   public warn(message: string): void {
-    console.error(`[WARN]: ${message}`);
+    console.error(`[NTFYME-LOG-WARNING]: ${message}`);
   }
 
   public error(message: string): void {
-    console.error(`[ERROR]: ${message}`);
+    console.error(`[NTFYME-LOG-ERROR]: ${message}`);
   }
 }
