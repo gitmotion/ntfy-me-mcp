@@ -6,6 +6,8 @@
 [![Docker Image Version](https://img.shields.io/docker/v/gitmotion/ntfy-me-mcp?logo=docker&label=Docker)](https://hub.docker.com/r/gitmotion/ntfy-me-mcp)
 [![License](https://img.shields.io/badge/license-GPL--3.0-blue.svg)](LICENSE)
 [![GitHub](https://img.shields.io/github/stars/gitmotion/ntfy-me-mcp?style=social)](https://github.com/gitmotion/ntfy-me-mcp)
+
+[![Trust Score](https://archestra.ai/mcp-catalog/api/badge/quality/gitmotion/ntfy-me-mcp)](https://archestra.ai/mcp-catalog/gitmotion__ntfy-me-mcp)
 <a href="https://www.buymeacoffee.com/gitmotion" target="_blank" rel="noopener noreferrer">
 <img src="https://www.buymeacoffee.com/assets/img/custom_images/yellow_img.png" alt="Buy me a coffee" width="105px" />
 </a>
