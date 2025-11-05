@@ -22,11 +22,12 @@ The server includes intelligent features like automatic URL detection for creati
 
 ### Available via:
 
-| Name        | Link / Badge                                                                                                                                                                       |
-| ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Glama.ai    | <a href="https://glama.ai/mcp/servers/@gitmotion/ntfy-me-mcp"><img width="250" src="https://glama.ai/mcp/servers/@gitmotion/ntfy-me-mcp/badge" alt="ntfy-me-mcp MCP server" /></a> |
-| Smithery.ai | [![smithery badge](https://smithery.ai/badge/@gitmotion/ntfy-me-mcp)](https://smithery.ai/server/@gitmotion/ntfy-me-mcp)                                                           |
-| MseeP.ai    | <a href="https://mseep.ai/app/gitmotion-ntfy-me-mcp"><img width="150" src="https://mseep.net/pr/gitmotion-ntfy-me-mcp-badge.png" alt="ntfy-me-mc-mseepai" /></a>                   |
+| Name         | Link / Badge                                                                                                                                                                       |
+| ------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------  |
+| Glama.ai     | <a href="https://glama.ai/mcp/servers/@gitmotion/ntfy-me-mcp"><img width="250" src="https://glama.ai/mcp/servers/@gitmotion/ntfy-me-mcp/badge" alt="ntfy-me-mcp MCP server" /></a> |
+| Smithery.ai  | [![smithery badge](https://smithery.ai/badge/@gitmotion/ntfy-me-mcp)](https://smithery.ai/server/@gitmotion/ntfy-me-mcp)                                                           |
+| MseeP.ai     | <a href="https://mseep.ai/app/gitmotion-ntfy-me-mcp"><img width="150" src="https://mseep.net/pr/gitmotion-ntfy-me-mcp-badge.png" alt="ntfy-me-mc-mseepai" /></a>                   |
+| Archestra.ai | [![Trust Score](https://archestra.ai/mcp-catalog/api/badge/quality/gitmotion/ntfy-me-mcp)](https://archestra.ai/mcp-catalog/gitmotion__ntfy-me-mcp)</a>                            |
 
 ## Table of Contents
 
