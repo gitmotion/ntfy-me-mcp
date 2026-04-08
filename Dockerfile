@@ -20,6 +20,7 @@ WORKDIR /app
 RUN adduser -D mcp_user
 
 ENV NODE_ENV=production
+LABEL org.opencontainers.image.source="https://github.com/gitmotion/ntfy-me-mcp"
 
 COPY --from=build /app/package*.json ./
 COPY --from=build --chown=mcp_user:mcp_user /app/node_modules ./node_modules

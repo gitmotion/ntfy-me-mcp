@@ -15,7 +15,8 @@ env:
   IMAGE_PLATFORMS: linux/amd64,linux/arm64
   GHCR_REGISTRY: ghcr.io
   GHCR_IMAGE: ${{ github.repository }}
-  DOCKERHUB_IMAGE: ${{ secrets.DOCKERHUB_USERNAME || github.repository_owner }}/${{ github.event.repository.name }}
+  DOCKERHUB_USERNAME: ${{ vars['DOCKERHUB_USERNAME'] || github.repository_owner }}
+  DOCKERHUB_IMAGE: ${{ vars['DOCKERHUB_USERNAME'] || github.repository_owner }}/${{ github.event.repository.name }}
   DOCKERHUB_DESCRIPTION: An MCP server for sending ntfy notifications to your self-hosted ntfy server
 
 permissions:
@@ -107,7 +108,7 @@ jobs:
         id: login_dockerhub
         uses: docker/login-action@4907a6ddec9925e35a0a9e82d7399ccc52663121 # v4.1.0
         with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          username: ${{ env.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: Login to GitHub Container Registry
@@ -144,7 +145,7 @@ jobs:
         id: update_dockerhub_description
         uses: peter-evans/dockerhub-description@1b9a80c056b620d92cedb9d9b5a223409c68ddfa # v5.0.0
         with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          username: ${{ env.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
           repository: ${{ env.DOCKERHUB_IMAGE }}
           short-description: ${{ env.DOCKERHUB_DESCRIPTION }}
