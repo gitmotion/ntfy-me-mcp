@@ -1,0 +1,66 @@
+name: Build and Test
+
+on:
+  push:
+  pull_request:
+  release:
+    types:
+      - published
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name != 'release' }}
+
+jobs:
+  build-and-test:
+    name: build-and-test
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout code
+        id: checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Setup Node.js
+        id: setup_node
+        uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v6.3.0
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        id: install_dependencies
+        run: npm ci
+
+      - name: Build
+        id: build_project
+        run: npm run build
+
+      - name: Run tests
+        id: run_tests
+        run: npm test
+
+      - name: Summarize test workflow
+        if: ${{ always() }}
+        run: |
+          {
+            echo "## Build and Test Summary"
+            echo ""
+            echo "**Status:** ${{ job.status }}"
+            echo "**Event:** ${{ github.event_name }}"
+            echo "**Ref:** ${{ github.ref }}"
+            echo "**Node Version:** 24"
+            echo ""
+            echo "| Step | Ran | Result |"
+            echo "| --- | --- | --- |"
+            echo "| Checkout code | ${{ steps.checkout.outcome == 'success' && 'yes' || steps.checkout.outcome == 'failure' && 'yes' || steps.checkout.outcome == 'cancelled' && 'yes' || 'no' }} | ${{ steps.checkout.outcome || 'skipped' }} |"
+            echo "| Setup Node.js | ${{ steps.setup_node.outcome == 'success' && 'yes' || steps.setup_node.outcome == 'failure' && 'yes' || steps.setup_node.outcome == 'cancelled' && 'yes' || 'no' }} | ${{ steps.setup_node.outcome || 'skipped' }} |"
+            echo "| Install dependencies | ${{ steps.install_dependencies.outcome == 'success' && 'yes' || steps.install_dependencies.outcome == 'failure' && 'yes' || steps.install_dependencies.outcome == 'cancelled' && 'yes' || 'no' }} | ${{ steps.install_dependencies.outcome || 'skipped' }} |"
+            echo "| Build | ${{ steps.build_project.outcome == 'success' && 'yes' || steps.build_project.outcome == 'failure' && 'yes' || steps.build_project.outcome == 'cancelled' && 'yes' || 'no' }} | ${{ steps.build_project.outcome || 'skipped' }} |"
+            echo "| Run tests | ${{ steps.run_tests.outcome == 'success' && 'yes' || steps.run_tests.outcome == 'failure' && 'yes' || steps.run_tests.outcome == 'cancelled' && 'yes' || 'no' }} | ${{ steps.run_tests.outcome || 'skipped' }} |"
+          } >> "$GITHUB_STEP_SUMMARY"

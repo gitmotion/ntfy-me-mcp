@@ -1,4 +1,9 @@
 import fetch from 'node-fetch';
+import { Logger } from './logger.js';
+import { messageDataSchema, } from '../schemas/messageData.schema.js';
+import { ntfyFetchOptionsSchema, } from '../schemas/ntfyFetchOptions.schema.js';
+import { validateNtfyTopic, validateNtfyUrl } from './validation.js';
+const logger = Logger.getInstance();
 /**
  * Fetches cached messages from an ntfy server
  *
@@ -7,67 +12,77 @@ import fetch from 'node-fetch';
  */
 export async function fetchMessages(options) {
     try {
+        // Validate the URL to prevent prompt injection via malicious URL values
+        validateNtfyUrl(options.ntfyUrl, "ntfyUrl");
+        const topic = validateNtfyTopic(options.topic, 'ntfyTopic');
+        const parsedOptions = ntfyFetchOptionsSchema.parse({
+            ...options,
+            topic,
+        });
         // Prepare the URL with proper handling of trailing slashes
-        const baseUrl = options.ntfyUrl.endsWith("/") ? options.ntfyUrl.slice(0, -1) : options.ntfyUrl;
+        const baseUrl = parsedOptions.ntfyUrl.endsWith("/")
+            ? parsedOptions.ntfyUrl.slice(0, -1)
+            : parsedOptions.ntfyUrl;
         // Start with the basic endpoint
-        let endpoint = `${baseUrl}/${options.topic}/json?poll=1`;
+        let endpoint = `${baseUrl}/${topic}/json?poll=1`;
         // Add the since parameter if provided
-        if (options.since !== undefined && options.since !== null) {
-            endpoint += `&since=${options.since}`;
+        if (parsedOptions.since !== undefined && parsedOptions.since !== null) {
+            endpoint += `&since=${parsedOptions.since}`;
         }
         // Prepare headers
         const headers = {};
         // Add authorization if token is provided
-        if (options.token) {
-            headers.Authorization = `Bearer ${options.token}`;
+        if (parsedOptions.token) {
+            headers.Authorization = `Bearer ${parsedOptions.token}`;
         }
         // Add filter headers if provided
-        if (options.messageId) {
-            headers['X-ID'] = options.messageId;
+        if (parsedOptions.messageId) {
+            headers['X-ID'] = parsedOptions.messageId;
         }
-        if (options.messageText) {
-            headers['X-Message'] = options.messageText;
+        if (parsedOptions.messageText) {
+            headers['X-Message'] = parsedOptions.messageText;
         }
-        if (options.messageTitle) {
-            headers['X-Title'] = options.messageTitle;
+        if (parsedOptions.messageTitle) {
+            headers['X-Title'] = parsedOptions.messageTitle;
         }
-        if (options.priorities) {
+        if (parsedOptions.priorities) {
             // Handle both string and string[] formats
-            const priorityValue = Array.isArray(options.priorities)
-                ? options.priorities.join(',')
-                : options.priorities;
+            const priorityValue = Array.isArray(parsedOptions.priorities)
+                ? parsedOptions.priorities.join(',')
+                : parsedOptions.priorities;
             headers['X-Priority'] = priorityValue;
         }
-        if (options.tags) {
+        if (parsedOptions.tags) {
             // Handle both string and string[] formats
-            const tagsValue = Array.isArray(options.tags)
-                ? options.tags.join(',')
-                : options.tags;
+            const tagsValue = Array.isArray(parsedOptions.tags)
+                ? parsedOptions.tags.join(',')
+                : parsedOptions.tags;
             headers['X-Tags'] = tagsValue;
         }
         // Log helpful message with filter information
-        let filterInfo = '';
-        if (options.messageId)
-            filterInfo += ` [ID: ${options.messageId}]`;
-        if (options.messageTitle)
-            filterInfo += ` [Title: ${options.messageTitle}]`;
-        if (options.messageText)
-            filterInfo += ` [Message: ${options.messageText}]`;
-        if (options.priorities)
-            filterInfo += ` [Priorities: ${Array.isArray(options.priorities) ? options.priorities.join(',') : options.priorities}]`;
-        if (options.tags)
-            filterInfo += ` [Tags: ${Array.isArray(options.tags) ? options.tags.join(',') : options.tags}]`;
-        console.log(`Fetching messages from ${endpoint}${filterInfo ? ' with filters:' + filterInfo : ''}`);
+        const appliedFilters = [];
+        if (parsedOptions.messageId)
+            appliedFilters.push('messageId');
+        if (parsedOptions.messageTitle)
+            appliedFilters.push('messageTitle');
+        if (parsedOptions.messageText)
+            appliedFilters.push('messageText');
+        if (parsedOptions.priorities)
+            appliedFilters.push('priorities');
+        if (parsedOptions.tags)
+            appliedFilters.push('tags');
+        logger.info(`Fetching messages for topic ${topic}` +
+            `${appliedFilters.length > 0 ? ` with filters: ${appliedFilters.join(', ')}` : ''}`);
         // Make the API call
         const response = await fetch(endpoint, { headers });
         if (!response.ok) {
             // Handle authentication errors
             if (response.status === 401 || response.status === 403) {
-                throw new Error(`Authentication failed when fetching messages from ${options.topic}. ` +
+                throw new Error('Authentication failed when fetching messages. ' +
                     `This ntfy topic requires an access token.`);
             }
             // Handle other errors
-            throw new Error(`Failed to fetch ntfy messages. Status code: ${response.status}, Message: ${await response.text()}`);
+            throw new Error(`Failed to fetch ntfy messages. Status code: ${response.status}`);
         }
         // Get the raw response data
         const rawResponse = await response.text();
@@ -78,13 +93,20 @@ export async function fetchMessages(options) {
             .split('\n') // Split by newlines
             .filter((line) => line.trim().length > 0) // Remove empty lines
             .map((line) => {
+            let parsedLine;
             try {
-                return JSON.parse(line); // Parse each line as JSON
+                parsedLine = JSON.parse(line); // Parse each line as JSON
             }
-            catch (error) {
-                console.error('Error parsing line:', line, error);
+            catch {
+                logger.warn('Skipping invalid JSON line returned by ntfy server.');
                 return null; // Skip invalid JSON lines
             }
+            const parsedMessage = messageDataSchema.safeParse(parsedLine);
+            if (!parsedMessage.success) {
+                logger.warn('Skipping invalid message payload returned by ntfy server.');
+                return null;
+            }
+            return parsedMessage.data;
         })
             .filter((msg) => msg !== null); // Filter out invalid messages
         // Organize messages by topic
@@ -98,7 +120,7 @@ export async function fetchMessages(options) {
         return messageRecords;
     }
     catch (error) {
-        console.error('Error fetching messages:', error);
+        logger.error('Failed to fetch messages from ntfy server.');
         throw error;
     }
 }

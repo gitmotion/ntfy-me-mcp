@@ -1,0 +1,10 @@
+.git
+.github
+node_modules
+build
+test
+.env
+.env.*
+README.md
+LICENSE
+smithery.yaml

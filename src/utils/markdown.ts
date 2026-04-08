@@ -8,43 +8,32 @@ import MarkdownIt from 'markdown-it';
  * @returns true if markdown formatting is detected, false otherwise
  */
 export function containsMarkdown(text: string): boolean {
+  if (!text) {
+    return false;
+  }
+
   // Initialize markdown parser with default options
-  const md = new MarkdownIt('zero');
+  const md = new MarkdownIt();
   
   // Parse the text into tokens
   const tokens = md.parse(text, {});
-  
-  // If we have just one paragraph with inline content, we need to check 
-  // if there's actual formatting inside it
-  if (tokens.length <= 2) { // Simple text usually has open/close paragraph tokens
-    let hasFormatting = false;
-    
-    // Look for any token that indicates markdown formatting
-    for (const token of tokens) {
-      // Check for formatting inside paragraph
-      if (token.type === 'inline' && token.children) {
-        for (const child of token.children) {
-          // If any child is not plain text, we have markdown
-          if (child.type !== 'text') {
-            hasFormatting = true;
-            break;
-          }
+
+  for (const token of tokens) {
+    if (['heading_open', 'blockquote_open', 'bullet_list_open', 'ordered_list_open', 
+         'fence', 'hr', 'table_open', 'code_block'].includes(token.type)) {
+      return true;
+    }
+
+    if (token.type === 'inline' && token.children) {
+      for (const child of token.children) {
+        if (child.type !== 'text' && child.type !== 'softbreak') {
+          return true;
         }
       }
-      
-      // Check for block-level formatting
-      if (['heading_open', 'blockquote_open', 'bullet_list_open', 'ordered_list_open', 
-           'fence', 'hr', 'table_open', 'code_block'].includes(token.type)) {
-        hasFormatting = true;
-        break;
-      }
     }
-    
-    return hasFormatting;
   }
-  
-  // If we have more than just paragraph tokens, we definitely have markdown
-  return tokens.length > 2;
+
+  return false;
 }
 
 /**

@@ -1,15 +1,7 @@
+import { type ViewAction } from "../schemas/viewAction.schema.js";
+
 // URL regex pattern to find URLs in text
 const URL_PATTERN = /https?:\/\/(?:www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b(?:[-a-zA-Z0-9()@:%_\+.~#?&\/=]*)/gi;
-
-/**
- * Interface for view actions that can be attached to ntfy notifications
- */
-export interface ViewAction {
-  action: "view";
-  label: string;
-  url: string;
-  clear?: boolean;
-}
 
 /**
  * Clean a URL by removing trailing markdown-related characters
@@ -38,16 +30,16 @@ export function processActions(text: string): ViewAction[] {
   // Using matchAll to get all matches with their positions
   const urlMatches = Array.from(text.matchAll(new RegExp(URL_PATTERN)));
   const actions: ViewAction[] = [];
-  
+
   if (urlMatches.length === 0) {
     return actions;
   }
-  
+
   // Process URLs for actions (first 3)
   const actionUrls = urlMatches
     .slice(0, Math.min(3, urlMatches.length))
     .map(match => cleanUrl(match[0]));
-    
+
   for (const url of actionUrls) {
     let label: string;
     try {
@@ -56,7 +48,7 @@ export function processActions(text: string): ViewAction[] {
     } catch {
       label = 'link';
     }
-    
+
     actions.push({
       action: "view",
       label: `Open ${label}`,
@@ -64,6 +56,6 @@ export function processActions(text: string): ViewAction[] {
       clear: true
     });
   }
-  
+
   return actions;
 }

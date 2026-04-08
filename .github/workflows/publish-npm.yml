@@ -1,39 +1,123 @@
 name: Publish to npm registry
 
 on:
-  push:
-    branches:
-      - main # Trigger on pushes to the main branch
+  release:
+    types:
+      - published
+  workflow_dispatch:
+
+env:
+  CHECK_NAME: build-and-test
+  WAIT_INTERVAL: 10
+  NODE_VERSION: 24
+  NPM_REGISTRY_URL: https://registry.npmjs.org
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name != 'release' }}
 
 jobs:
-  build-and-publish:
-    name: Publish to npm
+  wait-for-tests:
+    name: Wait for tests
     runs-on: ubuntu-latest
+    permissions:
+      checks: read
+      contents: read
     steps:
-      # Step 1: Checkout the repository
-      - uses: actions/checkout@v4
-      
-      # Step 2: Set up Node.js
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - name: Wait for build-and-test check
+        id: wait_for_tests_check
+        uses: lewagon/wait-on-check-action@78dd4dd5d9b337c14c3c81f79e53bf7d222435c1 # v1.6.1
         with:
-          node-version: '20.x'
-          registry-url: 'https://registry.npmjs.org'
-      
-      # Step 3: Install dependencies
-      - name: Install dependencies
-        run: npm install
+          ref: ${{ github.sha }}
+          check-name: ${{ env.CHECK_NAME }}
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          wait-interval: ${{ env.WAIT_INTERVAL }}
 
-      # Step 4: Build the project
+  build-and-publish:
+    name: Validate and publish npm package
+    runs-on: ubuntu-latest
+    needs: wait-for-tests
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Checkout code
+        id: checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Setup Node.js
+        id: setup_node
+        uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v6.3.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          registry-url: ${{ env.NPM_REGISTRY_URL }}
+
+      - name: Install dependencies
+        id: install_dependencies
+        run: npm ci
+
+      - name: Resolve release version
+        if: github.event_name == 'release'
+        id: release_version
+        run: |
+          tag='${{ github.event.release.tag_name }}'
+          version="${tag#v}"
+
+          if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?$ ]]; then
+            echo "Release tag must be a semver tag like v1.2.3 or 1.2.3. Received: $tag" >&2
+            exit 1
+          fi
+
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - name: Sync package version to release tag
+        if: github.event_name == 'release'
+        id: sync_package_version
+        run: npm version "${{ steps.release_version.outputs.version }}"
+          --no-git-tag-version --allow-same-version
+
       - name: Build
+        id: build_project
         run: npm run build
 
-      # Step 5: Ensure correct npm registry
-      - name: Ensure correct npm registry
-        run: npm config set registry https://registry.npmjs.org/
-      
-      # Step 6: Publish to npm
+      - name: Validate npm package contents
+        id: validate_package
+        run: npm pack --dry-run
+
       - name: Publish to npm
-        run: npm publish --access public
+        if: github.event_name == 'release'
+        id: publish_npm
+        run: npm publish --access public --provenance
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Summarize npm workflow
+        if: ${{ always() }}
+        run: |
+          {
+            echo "## npm Publish Summary"
+            echo ""
+            echo "**Status:** ${{ job.status }}"
+            echo "**Event:** ${{ github.event_name }}"
+            echo "**Ref:** ${{ github.ref }}"
+            echo "**Registry:** ${{ env.NPM_REGISTRY_URL }}"
+            echo "**Release Tag:** ${{ github.event.release.tag_name || 'n/a' }}"
+            echo "**Resolved Version:** ${{ steps.release_version.outputs.version || 'n/a' }}"
+            echo ""
+            echo "| Step | Ran | Result |"
+            echo "| --- | --- | --- |"
+            echo "| Wait for tests job | yes | ${{ needs.wait-for-tests.result }} |"
+            echo "| Checkout code | ${{ steps.checkout.outcome == 'success' && 'yes' || steps.checkout.outcome == 'failure' && 'yes' || steps.checkout.outcome == 'cancelled' && 'yes' || 'no' }} | ${{ steps.checkout.outcome || 'skipped' }} |"
+            echo "| Setup Node.js | ${{ steps.setup_node.outcome == 'success' && 'yes' || steps.setup_node.outcome == 'failure' && 'yes' || steps.setup_node.outcome == 'cancelled' && 'yes' || 'no' }} | ${{ steps.setup_node.outcome || 'skipped' }} |"
+            echo "| Install dependencies | ${{ steps.install_dependencies.outcome == 'success' && 'yes' || steps.install_dependencies.outcome == 'failure' && 'yes' || steps.install_dependencies.outcome == 'cancelled' && 'yes' || 'no' }} | ${{ steps.install_dependencies.outcome || 'skipped' }} |"
+            echo "| Resolve release version | ${{ steps.release_version.outcome == 'success' && 'yes' || steps.release_version.outcome == 'failure' && 'yes' || steps.release_version.outcome == 'cancelled' && 'yes' || 'no' }} | ${{ steps.release_version.outcome || 'skipped' }} |"
+            echo "| Sync package version | ${{ steps.sync_package_version.outcome == 'success' && 'yes' || steps.sync_package_version.outcome == 'failure' && 'yes' || steps.sync_package_version.outcome == 'cancelled' && 'yes' || 'no' }} | ${{ steps.sync_package_version.outcome || 'skipped' }} |"
+            echo "| Build | ${{ steps.build_project.outcome == 'success' && 'yes' || steps.build_project.outcome == 'failure' && 'yes' || steps.build_project.outcome == 'cancelled' && 'yes' || 'no' }} | ${{ steps.build_project.outcome || 'skipped' }} |"
+            echo "| Validate package contents | ${{ steps.validate_package.outcome == 'success' && 'yes' || steps.validate_package.outcome == 'failure' && 'yes' || steps.validate_package.outcome == 'cancelled' && 'yes' || 'no' }} | ${{ steps.validate_package.outcome || 'skipped' }} |"
+            echo "| Publish to npm | ${{ steps.publish_npm.outcome == 'success' && 'yes' || steps.publish_npm.outcome == 'failure' && 'yes' || steps.publish_npm.outcome == 'cancelled' && 'yes' || 'no' }} | ${{ steps.publish_npm.outcome || 'skipped' }} |"
+          } >> "$GITHUB_STEP_SUMMARY"

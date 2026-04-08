@@ -1,0 +1,59 @@
+{
+    // "inputs": [ // Uncomment this section to enable VSCode input prompt for ntfy token
+    //     {
+    //         "type": "promptString",
+    //         "id": "ntfy_token",
+    //         "description": "Ntfy Token",
+    //         "password": true
+    //     }
+    // ],
+    "servers": {
+        "exa": {
+            "type": "http",
+            "url": "https://mcp.exa.ai/mcp",
+        },
+        "ntfyme-mcp-local": {
+            "type": "stdio",
+            "command": "node",
+            "args": [
+                "./build/index.js"
+            ],
+            "env": {
+                "NTFY_TOPIC": "ntfymetest",
+                //"NTFY_URL": "https://ntfy.sh", // Use if using a self-hosted server
+                // "NTFY_TOKEN": "${input:ntfy_token}" // Use if using a protected topic/server
+            }
+        },
+        "ntfyme-mcp-npm": {
+            "command": "npx",
+            "args": [
+                "ntfy-me-mcp"
+            ],
+            "env": {
+                "NTFY_TOPIC": "ntfymetest",
+                // "NTFY_URL": "https://ntfy.sh",
+                // "NTFY_TOKEN": "${input:ntfy_token}", // Use the input id variable for the token
+            }
+        },
+        // "ntfyme-mcp-docker": {
+        //     "command": "docker",
+        //     "args": [
+        //         "run",
+        //         "-i",
+        //         "--rm",
+        //         "-e",
+        //         "NTFY_TOPIC",
+        //         "-e",
+        //         "NTFY_URL",
+        //         "-e",
+        //         "NTFY_TOKEN",
+        //         "ntfy-me-mcp:test", // OR use ghcr.io/gitmotion/ntfy-me-mcp:latest
+        //     ],
+        //     "env": {
+        //         "NTFY_TOPIC": "ntfymetest",
+        //         "NTFY_URL": "https://ntfy.sh",
+        //         "NTFY_TOKEN": "${input:ntfy_token}",
+        //     }
+        // },
+    }
+}
