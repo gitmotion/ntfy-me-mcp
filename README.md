@@ -1,7 +1,7 @@
 # <img src="https://m2tg1pnwn0.ufs.sh/f/GMqNN8nd9I8l9tUbmif1CnFX8Baqr7mHeicYu0AULDyNVWJE" width=30 /> ntfy-me-mcp
 
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.8.2-blue.svg?logo=typescript)](https://www.typescriptlang.org/)
-[![Model Context Protocol](https://img.shields.io/badge/MCP-1.8.0-green.svg?logo=anthropic)](https://modelcontextprotocol.io/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.9.3-blue.svg?logo=typescript)](https://www.typescriptlang.org/)
+[![Model Context Protocol](https://img.shields.io/badge/MCP-1.29.0-green.svg?logo=anthropic)](https://modelcontextprotocol.io/)
 [![NPM Version](https://img.shields.io/npm/v/ntfy-me-mcp.svg?logo=npm&color=orange)](https://www.npmjs.com/package/ntfy-me-mcp)
 [![Docker Image Version](https://img.shields.io/docker/v/gitmotion/ntfy-me-mcp?logo=docker&label=Docker)](https://hub.docker.com/r/gitmotion/ntfy-me-mcp)
 [![License](https://img.shields.io/badge/license-GPL--3.0-blue.svg)](LICENSE)
@@ -34,13 +34,8 @@ The server includes intelligent features like automatic URL detection for creati
 - [Features](#features)
   - [Coming soon...](#coming-soon)
 - [Quickstart - MCP Server Configuration](#quickstart---mcp-server-configuration)
-  - [NPM / NPX (Recommended Method)](#npm--npx-recommended-method)
-    - [Minimal Configuration](#minimal-configuration-for-public-topics-on-ntfysh)
-    - [Full Configuration](#full-configuration-for-private-servers-or-protected-topics)
-      - [Option 1: Direct Token](#option-1-direct-token-in-configuration-less-secure)
-      - [Option 2: VS Code Inputs](#option-2-using-vs-code-inputs-for-secure-token-handling-recommended)
-  - [Docker](#docker)
-    - [Using with MCP in Docker](#using-with-mcp-in-docker)
+  - [Configuration Examples](#configuration-examples)
+  - [VS Code Token Input Example](#vs-code-token-input-example)
 - [Installation](#installation)
   - [Option 1: Install Globally](#option-1-install-globally)
   - [Option 2: Run with npx](#option-2-run-with-npx)
@@ -89,53 +84,143 @@ The server includes intelligent features like automatic URL detection for creati
 
 ## Quickstart - MCP Server Configuration
 
-### NPM / NPX (Recommended Method)
+Choose the config shape that matches your client. All examples below use `NTFY_TOPIC` as the required variable and keep the optional auth settings commented out until you need them.
 
-- Requires npm / npx installed on your system.
-- This method is recommended for most users as it provides a simple & lightweight method to set up the server.
+### Configuration Examples
 
-For the easiest setup with MCP-compatible assistants, add this to your MCP configuration:
-
-#### Minimal configuration (for public topics on ntfy.sh)
-
-```json
-{
+<table>
+  <thead>
+    <tr>
+      <th>Type</th>
+      <th>Use when</th>
+      <th>Example</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>NPM / NPX</td>
+      <td>Recommended for most MCP clients when you want the lightest setup.</td>
+      <td>
+        <details>
+          <summary>Show config</summary>
+          <pre><code>{
   "ntfy-me-mcp": {
     "command": "npx",
-    "args": ["ntfy-me-mcp"],
+    "args": ["-y", "ntfy-me-mcp"],
     "env": {
-      "NTFY_TOPIC": "your-topic-name"
+      "NTFY_TOPIC": "your-ntfy-topic",
+      "NTFY_URL": "https://ntfy.sh",
+      // "NTFY_TOKEN": "add-your-ntfy-token"
     }
   }
-}
-```
-
-#### Full configuration (for private servers or protected topics)
-
-#### Option 1: Direct token in configuration
-
-```json
-{
+}</code></pre>
+        </details>
+      </td>
+    </tr>
+    <tr>
+      <td>Local</td>
+      <td>Use a local checkout when you are developing or changing the server yourself.</td>
+      <td>
+        <details>
+          <summary>Show config</summary>
+          <pre><code>{
   "ntfy-me-mcp": {
-    "command": "npx",
-    "args": ["ntfy-me-mcp"],
+    "command": "node",
+    "args": ["/absolute/path/to/ntfy-me-mcp/build/index.js"],
     "env": {
-      "NTFY_TOPIC": "your-topic-name",
-      "NTFY_URL": "https://your-ntfy-server.com",
-      "NTFY_TOKEN": "your-auth-token" // Use if using a protected topic/server
+      "NTFY_TOPIC": "your-ntfy-topic",
+      "NTFY_URL": "https://ntfy.sh",
+      // "NTFY_TOKEN": "add-your-ntfy-token"
     }
   }
-}
-```
+}</code></pre>
+        </details>
+      </td>
+    </tr>
+    <tr>
+      <td>Docker</td>
+      <td>Use a containerized setup when Docker is already part of your environment.</td>
+      <td>
+        <details>
+          <summary>Show config</summary>
+          <pre><code>{
+  "ntfy-me-mcp": {
+    "command": "docker",
+    "args": [
+      "run",
+      "-i",
+      "--rm",
+      "-e",
+      "NTFY_TOPIC",
+      "-e",
+      "NTFY_URL",
+      "-e",
+      "NTFY_TOKEN",
+      "gitmotion/ntfy-me-mcp:latest"
+    ],
+    "env": {
+      "NTFY_TOPIC": "your-ntfy-topic",
+      "NTFY_URL": "https://ntfy.sh",
+      // "NTFY_TOKEN": "add-your-ntfy-token"
+    }
+  }
+}</code></pre>
+        </details>
+      </td>
+    </tr>
+    <tr>
+      <td>OpenCode</td>
+      <td>Use OpenCode's local launcher format when configuring MCP there.</td>
+      <td>
+        <details>
+          <summary>Show config</summary>
+          <pre><code>{
+  "ntfy-me-mcp": {
+    "enabled": true,
+    "type": "local",
+    "command": ["npx", "-y", "ntfy-me-mcp"],
+    "environment": {
+      "NTFY_TOPIC": "your-ntfy-topic",
+      "NTFY_URL": "https://ntfy.sh",
+      // "NTFY_TOKEN": "add-your-ntfy-token"
+    }
+  }
+}</code></pre>
+        </details>
+      </td>
+    </tr>
+  </tbody>
+</table>
 
-#### Option 2: Using VS Code inputs for secure token handling (recommended)
+Docker images:
 
-Add this to your VS Code settings.json file:
+- `gitmotion/ntfy-me-mcp:latest` (Docker Hub)
+- `ghcr.io/gitmotion/ntfy-me-mcp:latest` (GitHub Container Registry)
 
-```json
-"mcp": {
+Replace `/absolute/path/to/ntfy-me-mcp/build/index.js` with the real path on your machine after running `npm run build`.
+
+### VS Code Token Input Example
+
+> [!NOTE]
+> Since `v1.4.0`, the `PROTECTED_TOPIC` env has been removed. This handling is now auto-detected from the unresolved `NTFY_TOKEN` input reference instead.
+
+If your client supports prompt-based secret inputs (i.e. VS Code), prefer that over hardcoding `NTFY_TOKEN` in config files. (Otherwise use your token directly)
+
+Use matching values like this in your `mcp.json` file:
+
+| Field | Value | Purpose |
+| --- | --- | --- |
+| `env.NTFY_TOKEN` | `"${input:ntfy_token}"` | References the secure prompt-backed token value |
+| `inputs[].id` | `"ntfy_token"` | Defines the input name used by `NTFY_TOKEN` |
+| `inputs[].type` | `"promptString"` | Prompts the user for the token at runtime |
+
+<details>
+<summary>Show VS Code mcp.json example</summary>
+
+```jsonc
+{
   "inputs": [
-    { // Add this to your inputs array
+    {
       "type": "promptString",
       "id": "ntfy_token",
       "description": "Ntfy Token",
@@ -143,67 +228,25 @@ Add this to your VS Code settings.json file:
     }
   ],
   "servers": {
-    // Other servers...
     "ntfy-me-mcp": {
       "command": "npx",
-      "args": ["ntfy-me-mcp"],
+      "args": ["-y", "ntfy-me-mcp"],
       "env": {
-        "NTFY_TOPIC": "your-topic-name",
+        "NTFY_TOPIC": "your-ntfy-topic",
         "NTFY_URL": "https://your-ntfy-server.com",
-        "NTFY_TOKEN": "${input:ntfy_token}", // Use the input id variable for the token
-        "PROTECTED_TOPIC": "true" // Prompts for token and masks it in your config
+        "NTFY_TOKEN": "${input:ntfy_token}"
       }
     }
   }
 }
 ```
 
-With this setup, VS Code will prompt you for the token when starting the server and the token will be masked when entered.
+</details>
 
-## Docker
+- Add this to your VS Code `mcp.json` file, either the user-level file or your workspace `.vscode/mcp.json`
+- Set `NTFY_TOKEN` exactly to `"${input:ntfy_token}"` when you want VS Code to treat it as a secure prompt-backed value.
 
-### Using with MCP in Docker
-
-- Requires Docker installed on your system.
-- This method is useful for running the server in a containerized environment.
-- You can use the official Docker images available on Docker Hub or GitHub Container Registry.
-
-Docker Images:
-
-- `gitmotion/ntfy-me-mcp:latest` (Docker Hub)
-- `ghcr.io/gitmotion/ntfy-me-mcp:latest` (GitHub Container Registry)
-
-In your MCP configuration (e.g., VS Code settings.json):
-
-```json
-"mcp": {
-  "servers": {
-    "ntfy-mcp": {
-      "command": "docker",
-      "args": [
-        "run",
-        "-i",
-        "--rm",
-        "-e",
-        "NTFY_TOPIC",
-        "-e",
-        "NTFY_URL",
-        "-e",
-        "NTFY_TOKEN",
-        "-e",
-        "PROTECTED_TOPIC",
-        "gitmotion/ntfy-me-mcp", // OR use ghcr.io/gitmotion/ntfy-me-mcp:latest
-      ],
-      "env": {
-        "NTFY_TOPIC": "your-topic-name",
-        "NTFY_URL": "https://your-ntfy-server.com",
-        "NTFY_TOKEN": "${input:ntfy_token}",
-        "PROTECTED_TOPIC": "true"
-      }
-    }
-  }
-}
-```
+If the client resolves `"${input:ntfy_token}"` before launch, the server receives the real token directly. If the placeholder is passed through unchanged, ntfy-me-mcp detects that unresolved input reference and prompts for the token itself at startup.
 
 ## Installation
 
@@ -222,6 +265,9 @@ npx ntfy-me-mcp
 ```
 
 ### Option 3: Install locally
+
+<details>
+<summary>Show local install steps</summary>
 
 ```bash
 # Clone the repository
@@ -243,9 +289,14 @@ npm run build
 npm start
 ```
 
+</details>
+
 ### Option 4: Build and use locally with node command
 
 If you're developing or customizing the server, you might want to run it directly with node:
+
+<details>
+<summary>Show local build steps</summary>
 
 ```bash
 # Clone the repository
@@ -267,23 +318,32 @@ npm run build
 npm start
 ```
 
+</details>
+
 #### Using locally built server with MCP
 
 When configuring your MCP to use a locally built version, specify the node command and path to the built index.js file:
 
-```json
+<details>
+<summary>Show local MCP config</summary>
+
+```jsonc
 {
   "ntfy-me": {
     "command": "node",
     "args": ["/path/to/ntfy-mcp/build/index.js"],
     "env": {
-      "NTFY_TOPIC": "your-topic-name"
+      "NTFY_TOPIC": "your-topic-name",
       //"NTFY_URL": "https://your-ntfy-server.com", // Use if using a self-hosted server
       //"NTFY_TOKEN": "your-auth-token" // Use if using a protected topic/server
     }
   }
 }
 ```
+
+</details>
+
+For secure token handling in VS Code, replace the commented `NTFY_TOKEN` line with `"NTFY_TOKEN": "${input:ntfy_token}"` and define the `ntfy_token` prompt in the same `mcp.json` file under the top-level `inputs` array.
 
 Remember to use the absolute path to your build/index.js file in the args array.
 
@@ -313,7 +373,10 @@ nano .env  # or vim, code, etc.
 
 Your `.env` file should contain these variables:
 
-```
+<details>
+<summary>Show example .env</summary>
+
+```dotenv
 # Required
 NTFY_TOPIC=your-topic-name
 
@@ -321,10 +384,9 @@ NTFY_TOPIC=your-topic-name
 # NTFY_URL=https://ntfy.sh  # Default is ntfy.sh, change to your self-hosted ntfy server URL if needed
                             # Include port if needed, e.g., https://your-ntfy-server.com:8443
 # NTFY_TOKEN=your-access-token  # Required for authentication with protected topics/servers
-# PROTECTED_TOPIC=false  # Set to "true" if your topic requires authentication (helps prevent auth errors)
 ```
 
-> **Note**: The `PROTECTED_TOPIC` flag helps the application determine whether authentication is required for your topic. When set to "true" and no token is provided, you'll be prompted to enter one. This prevents authentication failures with protected topics.
+</details>
 
 ## Usage
 
@@ -416,6 +478,9 @@ For more control, you can manually specify actions:
 
 Example with action links:
 
+<details>
+<summary>Show action links example</summary>
+
 ```javascript
 {
   taskTitle: "Pull Request Review",
@@ -437,6 +502,8 @@ Example with action links:
   ]
 }
 ```
+
+</details>
 
 #### Emoji Shortcodes
 
@@ -558,34 +625,11 @@ Messages are returned with full details including:
 
 ## Development & Contributions
 
-### Building from Source
-
-```bash
-git clone https://github.com/gitmotion/ntfy-me-mcp.git
-cd ntfy-me-mcp
-npm install
-npm run build
-```
+Development and contribution guidance now lives in [CONTRIBUTING.md](CONTRIBUTING.md), including setup steps and the npm scripts reference.
 
 ## License
 
 This project is licensed under the GNU General Public License v3.0 - see the [LICENSE](LICENSE) file for details.
-
-## Contributing
-
-Contributions are welcome! Please follow these guidelines:
-
-- Point your pull requests to the `dev` or `testing` branches (not `main`).
-- For all logging, use the `Logger` class abstraction:
-  - Replace any `console.log`, `console.warn`, or `console.error` with `logger.info`, `logger.warn`, or `logger.error`.
-- Ensure your code is clean, well-documented, and passes all tests.
-- Clearly describe your changes in the PR description.
-- For local testing:
-  - Build the project with `npm run build`.
-  - Run the server locally using `npm start` or `node build/index.js`.
-  - Test your changes before submitting a PR.
-
-Thank you for helping improve ntfy-me-mcp!
 
 ---
 

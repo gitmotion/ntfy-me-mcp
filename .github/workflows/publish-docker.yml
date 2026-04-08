@@ -2,86 +2,183 @@ name: Publish Docker Image
 
 on:
   push:
-    branches:
-      - main
+  pull_request:
+  release:
+    types:
+      - published
+  workflow_dispatch:
+
+env:
+  CHECK_NAME: build-and-test
+  WAIT_INTERVAL: 10
+  PLATFORMS: arm64,amd64
+  IMAGE_PLATFORMS: linux/amd64,linux/arm64
+  GHCR_REGISTRY: ghcr.io
+  GHCR_IMAGE: ${{ github.repository }}
+  DOCKERHUB_IMAGE: ${{ secrets.DOCKERHUB_USERNAME || github.repository_owner }}/${{ github.event.repository.name }}
+  DOCKERHUB_DESCRIPTION: An MCP server for sending ntfy notifications to your self-hosted ntfy server
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name != 'release' }}
 
 jobs:
-  build-and-push:
-    name: Build and Push Docker Image
+  wait-for-tests:
+    name: Wait for tests
     runs-on: ubuntu-latest
     permissions:
+      checks: read
       contents: read
-      packages: write # Needed for GHCR
+    steps:
+      - name: Wait for build-and-test check
+        id: wait_for_tests_check
+        uses: lewagon/wait-on-check-action@78dd4dd5d9b337c14c3c81f79e53bf7d222435c1 # v1.6.1
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          check-name: ${{ env.CHECK_NAME }}
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          wait-interval: ${{ env.WAIT_INTERVAL }}
 
+  build-and-push:
+    name: Build Docker image
+    runs-on: ubuntu-latest
+    needs: wait-for-tests
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+      attestations: write
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        id: checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Resolve release version
+        if: github.event_name == 'release'
+        id: release_version
+        run: |
+          tag='${{ github.event.release.tag_name }}'
+          version="${tag#v}"
+
+          if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?$ ]]; then
+            echo "Release tag must be a semver tag like v1.2.3 or 1.2.3. Received: $tag" >&2
+            exit 1
+          fi
+
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - name: Generate image tags
+        id: image_tags
+        run: |
+          short_sha="${GITHUB_SHA::12}"
+
+          {
+            echo 'tags<<EOF'
+            echo "$DOCKERHUB_IMAGE:sha-$short_sha"
+            echo "$GHCR_REGISTRY/$GHCR_IMAGE:sha-$short_sha"
+
+            if [[ '${{ github.event_name }}' == 'release' ]]; then
+              version='${{ steps.release_version.outputs.version }}'
+              echo "$DOCKERHUB_IMAGE:$version"
+              echo "$DOCKERHUB_IMAGE:latest"
+              echo "$GHCR_REGISTRY/$GHCR_IMAGE:$version"
+              echo "$GHCR_REGISTRY/$GHCR_IMAGE:latest"
+            fi
+
+            echo 'EOF'
+          } >> "$GITHUB_OUTPUT"
 
       - name: Set up QEMU
-        uses: docker/setup-qemu-action@v2
+        id: setup_qemu
+        uses: docker/setup-qemu-action@ce360397dd3f832beb865e1373c09c0e9f86d70a # v4.0.0
         with:
-          platforms: 'arm64,amd64'
+          platforms: ${{ env.PLATFORMS }}
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v2
-        id: buildx
-        with:
-          install: true
-      
-      - name: Extract metadata (tags, labels)
-        id: meta
-        uses: docker/metadata-action@v4
-        with:
-          images: |
-            gitmotion/ntfy-me-mcp
-            ghcr.io/${{ github.repository }}
-          tags: |
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
-            type=raw,value=latest,enable={{is_default_branch}}
-
-      - name: Set Package Version
-        id: package_version
-        run: |
-          VERSION=$(node -p "require('./package.json').version")
-          echo "VERSION=$VERSION" >> $GITHUB_ENV
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
+        id: setup_buildx
+        uses: docker/setup-buildx-action@4d04d5d9486b7bd6fa91e7baf45bbb4f8b9deedd # v4.0.0
 
       - name: Login to Docker Hub
-        uses: docker/login-action@v2
+        if: github.event_name == 'release'
+        id: login_dockerhub
+        uses: docker/login-action@4907a6ddec9925e35a0a9e82d7399ccc52663121 # v4.1.0
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: Login to GitHub Container Registry
-        uses: docker/login-action@v2
+        if: github.event_name == 'release'
+        id: login_ghcr
+        uses: docker/login-action@4907a6ddec9925e35a0a9e82d7399ccc52663121 # v4.1.0
         with:
-          registry: ghcr.io
-          username: ${{ github.repository_owner }}
-          password: ${{ secrets.GH_TOKEN }}
+          registry: ${{ env.GHCR_REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build and push Docker image
-        uses: docker/build-push-action@v4
+      - name: Build Docker image
+        id: build_docker_image
+        uses: docker/build-push-action@d08e5c354a6adb9ed34480a06d141179aa583294 # v7.0.0
         with:
           context: .
-          push: true
-          platforms: linux/amd64,linux/arm64
-          tags: |
-            gitmotion/ntfy-me-mcp:latest
-            gitmotion/ntfy-me-mcp:${{ env.VERSION }}
-            ghcr.io/${{ github.repository }}:latest
-            ghcr.io/${{ github.repository }}:${{ env.VERSION }}
-          labels: ${{ steps.meta.outputs.labels }}
+          push: ${{ github.event_name == 'release' }}
+          platforms: ${{ env.IMAGE_PLATFORMS }}
+          tags: ${{ steps.image_tags.outputs.tags }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
-          build-args: |
-            VERSION=${{ env.VERSION }}
 
-      - name: Update Docker Hub Description
-        uses: peter-evans/dockerhub-description@v3
+      - name: Generate GHCR artifact attestation
+        if: github.event_name == 'release'
+        id: attest_ghcr
+        uses: actions/attest-build-provenance@a2bbfa25375fe432b6a289bc6b6cd05ecd0c4c32 # v4.1.0
+        with:
+          subject-name: ${{ env.GHCR_REGISTRY }}/${{ env.GHCR_IMAGE }}
+          subject-digest: ${{ steps.build_docker_image.outputs.digest }}
+          push-to-registry: true
+
+      - name: Update Docker Hub description
+        if: github.event_name == 'release'
+        id: update_dockerhub_description
+        uses: peter-evans/dockerhub-description@1b9a80c056b620d92cedb9d9b5a223409c68ddfa # v5.0.0
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
-          repository: gitmotion/ntfy-me-mcp
-          short-description: "An MCP server for sending ntfy notifications to your self-hosted ntfy server 📤"
+          repository: ${{ env.DOCKERHUB_IMAGE }}
+          short-description: ${{ env.DOCKERHUB_DESCRIPTION }}
           readme-filepath: ./README.md
+
+      - name: Summarize Docker workflow
+        if: ${{ always() }}
+        run: |
+          {
+            echo "## Docker Workflow Summary"
+            echo ""
+            echo "**Status:** ${{ job.status }}"
+            echo "**Event:** ${{ github.event_name }}"
+            echo "**Ref:** ${{ github.ref }}"
+            echo "**Platforms:** ${{ env.IMAGE_PLATFORMS }}"
+            echo "**Release Tag:** ${{ github.event.release.tag_name || 'n/a' }}"
+            echo "**Resolved Version:** ${{ steps.release_version.outputs.version || 'n/a' }}"
+            echo ""
+            echo "| Step | Ran | Result |"
+            echo "| --- | --- | --- |"
+            echo "| Wait for tests job | yes | ${{ needs.wait-for-tests.result }} |"
+            echo "| Checkout code | ${{ steps.checkout.outcome == 'success' && 'yes' || steps.checkout.outcome == 'failure' && 'yes' || steps.checkout.outcome == 'cancelled' && 'yes' || 'no' }} | ${{ steps.checkout.outcome || 'skipped' }} |"
+            echo "| Resolve release version | ${{ steps.release_version.outcome == 'success' && 'yes' || steps.release_version.outcome == 'failure' && 'yes' || steps.release_version.outcome == 'cancelled' && 'yes' || 'no' }} | ${{ steps.release_version.outcome || 'skipped' }} |"
+            echo "| Generate image tags | ${{ steps.image_tags.outcome == 'success' && 'yes' || steps.image_tags.outcome == 'failure' && 'yes' || steps.image_tags.outcome == 'cancelled' && 'yes' || 'no' }} | ${{ steps.image_tags.outcome || 'skipped' }} |"
+            echo "| Set up QEMU | ${{ steps.setup_qemu.outcome == 'success' && 'yes' || steps.setup_qemu.outcome == 'failure' && 'yes' || steps.setup_qemu.outcome == 'cancelled' && 'yes' || 'no' }} | ${{ steps.setup_qemu.outcome || 'skipped' }} |"
+            echo "| Set up Docker Buildx | ${{ steps.setup_buildx.outcome == 'success' && 'yes' || steps.setup_buildx.outcome == 'failure' && 'yes' || steps.setup_buildx.outcome == 'cancelled' && 'yes' || 'no' }} | ${{ steps.setup_buildx.outcome || 'skipped' }} |"
+            echo "| Login to Docker Hub | ${{ steps.login_dockerhub.outcome == 'success' && 'yes' || steps.login_dockerhub.outcome == 'failure' && 'yes' || steps.login_dockerhub.outcome == 'cancelled' && 'yes' || 'no' }} | ${{ steps.login_dockerhub.outcome || 'skipped' }} |"
+            echo "| Login to GHCR | ${{ steps.login_ghcr.outcome == 'success' && 'yes' || steps.login_ghcr.outcome == 'failure' && 'yes' || steps.login_ghcr.outcome == 'cancelled' && 'yes' || 'no' }} | ${{ steps.login_ghcr.outcome || 'skipped' }} |"
+            echo "| Build Docker image | ${{ steps.build_docker_image.outcome == 'success' && 'yes' || steps.build_docker_image.outcome == 'failure' && 'yes' || steps.build_docker_image.outcome == 'cancelled' && 'yes' || 'no' }} | ${{ steps.build_docker_image.outcome || 'skipped' }} |"
+            echo "| Generate GHCR artifact attestation | ${{ steps.attest_ghcr.outcome == 'success' && 'yes' || steps.attest_ghcr.outcome == 'failure' && 'yes' || steps.attest_ghcr.outcome == 'cancelled' && 'yes' || 'no' }} | ${{ steps.attest_ghcr.outcome || 'skipped' }} |"
+            echo "| Update Docker Hub description | ${{ steps.update_dockerhub_description.outcome == 'success' && 'yes' || steps.update_dockerhub_description.outcome == 'failure' && 'yes' || steps.update_dockerhub_description.outcome == 'cancelled' && 'yes' || 'no' }} | ${{ steps.update_dockerhub_description.outcome || 'skipped' }} |"
+            echo ""
+            echo "**Image Tags:**"
+            echo '```'
+            echo "${{ steps.image_tags.outputs.tags }}"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"

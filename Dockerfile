@@ -1,39 +1,35 @@
-FROM node:20-slim
+FROM node:24-alpine AS build
 
 WORKDIR /app
 
-# Create a non-root user
-RUN adduser --disabled-password --gecos "" mcp_user
-
-# Copy package files and install dependencies
+# Install all dependencies needed to compile the TypeScript source.
 COPY package*.json ./
-RUN npm install --production && npm cache clean --force
+RUN npm ci
 
-# Copy build files only (we don't need src for production)
-COPY --chown=mcp_user:mcp_user build ./build
+COPY tsconfig.json ./
+COPY src ./src
 
-# Create a volume for configuration if needed
-VOLUME /app/config
+RUN npm run build
+RUN npm prune --omit=dev && npm cache clean --force
 
-# Set environment variables
+FROM node:24-alpine AS runtime
+
+WORKDIR /app
+
+# Create a non-root user for the final runtime image.
+RUN adduser -D mcp_user
+
 ENV NODE_ENV=production
-ENV MCP_PORT=3000
 
-# Expose the MCP port (default is 3000)
-EXPOSE 3000
+COPY --from=build /app/package*.json ./
+COPY --from=build --chown=mcp_user:mcp_user /app/node_modules ./node_modules
+COPY --from=build --chown=mcp_user:mcp_user /app/build ./build
 
-# Change to non-root user
 USER mcp_user
 
-# Add healthcheck to verify the service is running
-HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
-  CMD wget --quiet --spider http://localhost:3000/health || exit 1
-
-# Start the MCP server
 CMD ["node", "build/index.js"]
 
 # The following environment variables can be passed when running the container:
 # - NTFY_TOPIC: Your ntfy topic name
 # - NTFY_URL: Your ntfy server URL (default: https://ntfy.sh)
 # - NTFY_TOKEN: Authentication token for protected topics
-# - PROTECTED_TOPIC: Set to "true" for protected topics
