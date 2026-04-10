@@ -1,22 +1,20 @@
 import { z } from "zod";
+import { createOptionalDefaultedNtfyPrioritySchema } from "./ntfyPriority.schema.js";
 import { createOptionalNtfyTopicSchema } from "./ntfyTopic.schema.js";
 import { viewActionSchema } from "./viewAction.schema.js";
 export const notifyToolInputSchema = z.object({
-    taskTitle: z.string().describe("Current task title/status"),
-    taskSummary: z.string().describe("Current task summary"),
-    ntfyUrl: z
+    title: z.string().describe("Notification title/status"),
+    message: z.string().describe("Notification message/body"),
+    url: z
         .string()
         .optional()
         .describe("Optional custom ntfy URL (defaults to NTFY_URL env var or https://ntfy.sh)"),
-    ntfyTopic: createOptionalNtfyTopicSchema("Optional custom ntfy topic (defaults to NTFY_TOPIC env var)"),
+    topic: createOptionalNtfyTopicSchema("Optional custom ntfy topic (defaults to NTFY_TOPIC env var)"),
     accessToken: z
         .string()
         .optional()
         .describe("Optional access token for authentication (defaults to NTFY_TOKEN env var)"),
-    priority: z
-        .enum(["min", "low", "default", "high", "max"])
-        .optional()
-        .describe("Message priority level"),
+    priority: createOptionalDefaultedNtfyPrioritySchema("Message priority level"),
     tags: z.array(z.string()).optional().describe("Tags for the notification"),
     markdown: z
         .boolean()

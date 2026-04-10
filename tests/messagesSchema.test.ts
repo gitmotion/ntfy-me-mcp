@@ -6,7 +6,7 @@ describe("ntfyFetchOptionsSchema", () => {
     it("accepts valid fetch options", () => {
         expect(
             ntfyFetchOptionsSchema.parse({
-                ntfyUrl: "https://ntfy.sh",
+                url: "https://ntfy.sh",
                 topic: "ntfy_topic",
                 token: "secret",
                 since: "10m",
@@ -17,7 +17,7 @@ describe("ntfyFetchOptionsSchema", () => {
                 tags: ["ops", "prod"],
             })
         ).toEqual({
-            ntfyUrl: "https://ntfy.sh",
+            url: "https://ntfy.sh",
             topic: "ntfy_topic",
             token: "secret",
             since: "10m",
@@ -32,10 +32,20 @@ describe("ntfyFetchOptionsSchema", () => {
     it("rejects invalid topic values", () => {
         expect(() =>
             ntfyFetchOptionsSchema.parse({
-                ntfyUrl: "https://ntfy.sh",
+                url: "https://ntfy.sh",
                 topic: "topic.with.dots",
             })
         ).toThrow(/ntfyTopic may only contain/);
+    });
+
+    it("rejects invalid priority filters", () => {
+        expect(() =>
+            ntfyFetchOptionsSchema.parse({
+                url: "https://ntfy.sh",
+                topic: "ntfy_topic",
+                priorities: ["high", "urgent"],
+            })
+        ).toThrow();
     });
 });
 

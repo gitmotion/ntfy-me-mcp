@@ -13,16 +13,16 @@ const logger = Logger.getInstance();
 export async function fetchMessages(options) {
     try {
         // Validate the URL to prevent prompt injection via malicious URL values
-        validateNtfyUrl(options.ntfyUrl, "ntfyUrl");
-        const topic = validateNtfyTopic(options.topic, 'ntfyTopic');
+        validateNtfyUrl(options.url, "url");
+        const topic = validateNtfyTopic(options.topic, 'topic');
         const parsedOptions = ntfyFetchOptionsSchema.parse({
             ...options,
             topic,
         });
         // Prepare the URL with proper handling of trailing slashes
-        const baseUrl = parsedOptions.ntfyUrl.endsWith("/")
-            ? parsedOptions.ntfyUrl.slice(0, -1)
-            : parsedOptions.ntfyUrl;
+        const baseUrl = parsedOptions.url.endsWith("/")
+            ? parsedOptions.url.slice(0, -1)
+            : parsedOptions.url;
         // Start with the basic endpoint
         let endpoint = `${baseUrl}/${topic}/json?poll=1`;
         // Add the since parameter if provided

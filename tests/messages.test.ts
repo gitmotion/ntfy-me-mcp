@@ -52,7 +52,7 @@ describe("fetchMessages", () => {
         );
 
         const result = await fetchMessages({
-            ntfyUrl: "https://ntfy.sh/",
+            url: "https://ntfy.sh/",
             topic: "alerts",
             token: "secret-token",
             since: "2m",
@@ -101,7 +101,7 @@ describe("fetchMessages", () => {
 
         await expect(
             fetchMessages({
-                ntfyUrl: "https://ntfy.sh",
+                url: "https://ntfy.sh",
                 topic: "alerts",
             })
         ).resolves.toBeNull();
@@ -131,7 +131,7 @@ describe("fetchMessages", () => {
         );
 
         const result = await fetchMessages({
-            ntfyUrl: "https://ntfy.sh",
+            url: "https://ntfy.sh",
             topic: "alerts",
         });
 
@@ -183,7 +183,7 @@ describe("fetchMessages", () => {
         );
 
         const result = await fetchMessages({
-            ntfyUrl: "https://ntfy.sh",
+            url: "https://ntfy.sh",
             topic: "alerts",
         });
 
@@ -212,7 +212,7 @@ describe("fetchMessages", () => {
 
         await expect(
             fetchMessages({
-                ntfyUrl: "https://ntfy.sh",
+                url: "https://ntfy.sh",
                 topic: "alerts",
             })
         ).rejects.toThrow(/Authentication failed when fetching messages/);
@@ -221,17 +221,17 @@ describe("fetchMessages", () => {
     it("validates URL and topic before issuing the request", async () => {
         await expect(
             fetchMessages({
-                ntfyUrl: "ftp://ntfy.sh",
+                url: "ftp://ntfy.sh",
                 topic: "alerts",
             })
-        ).rejects.toThrow(/Invalid ntfyUrl:/);
+        ).rejects.toThrow(/Invalid url:/);
 
         await expect(
             fetchMessages({
-                ntfyUrl: "https://ntfy.sh",
+                url: "https://ntfy.sh",
                 topic: "topic.with.dots",
             })
-        ).rejects.toThrow(/Invalid ntfyTopic:/);
+        ).rejects.toThrow(/Invalid topic:/);
 
         expect(mockFetch).not.toHaveBeenCalled();
     });
@@ -239,7 +239,7 @@ describe("fetchMessages", () => {
     it("rejects malformed runtime fetch options before issuing the request", async () => {
         await expect(
             fetchMessages({
-                ntfyUrl: "https://ntfy.sh",
+                url: "https://ntfy.sh",
                 topic: "alerts",
                 priorities: 3 as unknown as string | string[],
             })

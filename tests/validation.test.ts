@@ -1,4 +1,6 @@
 import { describe, it, expect } from "vitest";
+import { fetchToolInputSchema } from "../src/schemas/fetchTool.schema.js";
+import { notifyToolInputSchema } from "../src/schemas/notifyTool.schema.js";
 import {
     isUnresolvedInputReference,
     validateNtfyTopic,
@@ -180,13 +182,86 @@ describe("ntfyTopicSchema", () => {
     it("validates optional topic values for tool schemas", () => {
         const schema = createOptionalNtfyTopicSchema("test description");
         expect(schema.parse(undefined)).toBe(undefined);
-        expect(schema.parse("topic_name-1")).toBe("topic_name-1");
+        expect(schema.parse(" topic_name-1 ")).toBe("topic_name-1");
+    });
+
+    it("normalizes blank optional topic values to undefined", () => {
+        const schema = createOptionalNtfyTopicSchema("test description");
+        expect(schema.parse("")).toBe(undefined);
+        expect(schema.parse("   ")).toBe(undefined);
+    });
+
+    it("rejects invalid non-blank optional topic values", () => {
+        const schema = createOptionalNtfyTopicSchema("test description");
+
+        expect(() => schema.parse("topic.with.dots")).toThrow();
+        expect(() => schema.parse("topic with spaces")).toThrow();
+        expect(() => schema.parse("a".repeat(129))).toThrow();
     });
 
     it("rejects invalid schema topics", () => {
         expect(() => ntfyTopicSchema.parse("topic with spaces")).toThrow(
             /ntfyTopic may only contain/
         );
+    });
+});
+
+describe("notifyToolInputSchema", () => {
+    it("defaults blank and omitted priority values to default", () => {
+        expect(
+            notifyToolInputSchema.parse({
+                title: "Task",
+                message: "Summary",
+                priority: "",
+            }).priority
+        ).toBe("default");
+
+        expect(
+            notifyToolInputSchema.parse({
+                title: "Task",
+                message: "Summary",
+            }).priority
+        ).toBe("default");
+    });
+
+    it("normalizes blank topic values to undefined", () => {
+        expect(
+            notifyToolInputSchema.parse({
+                title: "Task",
+                message: "Summary",
+                topic: "",
+            }).topic
+        ).toBe(undefined);
+    });
+
+    it("rejects unsupported priority values", () => {
+        expect(() =>
+            notifyToolInputSchema.parse({
+                title: "Task",
+                message: "Summary",
+                priority: "urgent",
+            })
+        ).toThrow();
+    });
+});
+
+describe("fetchToolInputSchema", () => {
+    it("normalizes blank topic and priorities values to undefined", () => {
+        const parsed = fetchToolInputSchema.parse({
+            topic: "",
+            priorities: "",
+        });
+
+        expect(parsed.topic).toBe(undefined);
+        expect(parsed.priorities).toBe(undefined);
+    });
+
+    it("rejects unsupported priorities", () => {
+        expect(() =>
+            fetchToolInputSchema.parse({
+                priorities: ["high", "urgent"],
+            })
+        ).toThrow();
     });
 });
 

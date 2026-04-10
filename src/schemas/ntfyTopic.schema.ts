@@ -17,5 +17,16 @@ export const ntfyTopicSchema = z
     );
 
 export function createOptionalNtfyTopicSchema(description: string) {
-    return ntfyTopicSchema.optional().describe(description);
+    return z
+        .union([
+            z.string().regex(/^\s*$/),
+            ntfyTopicSchema,
+        ])
+        .optional()
+        .transform((value) => {
+            const trimmedValue = value?.trim();
+
+            return trimmedValue ? trimmedValue : undefined;
+        })
+        .describe(description);
 }

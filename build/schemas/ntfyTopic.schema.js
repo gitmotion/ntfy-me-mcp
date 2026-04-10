@@ -8,5 +8,15 @@ export const ntfyTopicSchema = z
     .max(NTFY_TOPIC_MAX_LENGTH, `ntfyTopic must be ${NTFY_TOPIC_MAX_LENGTH} characters or fewer`)
     .regex(NTFY_TOPIC_PATTERN, "ntfyTopic may only contain letters, numbers, underscores, and hyphens");
 export function createOptionalNtfyTopicSchema(description) {
-    return ntfyTopicSchema.optional().describe(description);
+    return z
+        .union([
+        z.string().regex(/^\s*$/),
+        ntfyTopicSchema,
+    ])
+        .optional()
+        .transform((value) => {
+        const trimmedValue = value?.trim();
+        return trimmedValue ? trimmedValue : undefined;
+    })
+        .describe(description);
 }

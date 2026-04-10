@@ -11,9 +11,9 @@ export function createToolHandlers(config = {}) {
     const getDefaultTopic = parsedConfig.getDefaultTopic ?? (() => undefined);
     const getDefaultUrl = parsedConfig.getDefaultUrl ?? (() => "https://ntfy.sh");
     const getDefaultToken = parsedConfig.getDefaultToken ?? (() => undefined);
-    function resolveTopic(ntfyTopic) {
-        if (ntfyTopic) {
-            return validateNtfyTopic(ntfyTopic, "ntfyTopic");
+    function resolveTopic(topic) {
+        if (topic) {
+            return validateNtfyTopic(topic, "topic");
         }
         const defaultTopic = getDefaultTopic();
         if (defaultTopic) {
@@ -21,16 +21,16 @@ export function createToolHandlers(config = {}) {
         }
         throw new Error("NTFY_TOPIC environment variable is required. Please ensure it's added to your .env file or passed as an environment variable.");
     }
-    async function handleNotifyTool({ taskTitle, taskSummary, ntfyUrl, ntfyTopic, accessToken, priority, tags, markdown, actions, }) {
+    async function handleNotifyTool({ title, message, url: customUrl, topic: customTopic, accessToken, priority, tags, markdown, actions, }) {
         try {
-            const url = ntfyUrl || getDefaultUrl();
-            const topic = resolveTopic(ntfyTopic);
+            const url = customUrl || getDefaultUrl();
+            const topic = resolveTopic(customTopic);
             const token = accessToken || getDefaultToken();
-            validateNtfyUrl(url);
+            validateNtfyUrl(url, "url");
             const baseUrl = url.endsWith("/") ? url.slice(0, -1) : url;
             const endpoint = `${baseUrl}/${topic}`;
             const headers = {
-                Title: taskTitle,
+                Title: title,
             };
             if (token) {
                 headers.Authorization = `Bearer ${token}`;
@@ -38,8 +38,8 @@ export function createToolHandlers(config = {}) {
             if (priority) {
                 headers.Priority = priority;
             }
-            const viewActions = actions || processActions(taskSummary);
-            const shouldUseMarkdown = markdown !== undefined ? markdown : detectMarkdown(taskSummary);
+            const viewActions = actions || processActions(message);
+            const shouldUseMarkdown = markdown !== undefined ? markdown : detectMarkdown(message);
             if (shouldUseMarkdown) {
                 headers["X-Markdown"] = "true";
             }
@@ -55,7 +55,7 @@ export function createToolHandlers(config = {}) {
                 `${viewActions.length > 0 ? ` and ${viewActions.length} view action(s)` : ""}`);
             const response = await fetch(cleanEndpoint, {
                 method: "POST",
-                body: taskSummary,
+                body: message,
                 headers,
             });
             if (!response.ok) {
@@ -96,15 +96,15 @@ export function createToolHandlers(config = {}) {
             };
         }
     }
-    async function handleFetchTool({ ntfyUrl, ntfyTopic, accessToken, since, messageId, messageText, messageTitle, priorities, tags, }) {
+    async function handleFetchTool({ url: customUrl, topic: customTopic, accessToken, since, messageId, messageText, messageTitle, priorities, tags, }) {
         try {
-            const url = ntfyUrl || getDefaultUrl();
-            const topic = resolveTopic(ntfyTopic);
+            const url = customUrl || getDefaultUrl();
+            const topic = resolveTopic(customTopic);
             const token = accessToken || getDefaultToken();
             const sinceSetting = since === null ? undefined : since || "10m";
-            validateNtfyUrl(url);
+            validateNtfyUrl(url, "url");
             const messageRecords = await fetchMessages({
-                ntfyUrl: url,
+                url,
                 topic,
                 token,
                 since: sinceSetting,
