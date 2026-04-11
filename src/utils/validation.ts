@@ -91,8 +91,10 @@ export function sanitizeErrorMessage(
     if (error instanceof Error) {
         // Only allow explicit safe error messages through directly.
         if (
+            error.message.startsWith("Invalid url:") ||
             error.message.startsWith("Invalid ntfyUrl:") ||
             error.message.startsWith("Invalid ntfy URL:") ||
+            error.message.startsWith("Invalid topic:") ||
             error.message.startsWith("Invalid ntfyTopic:") ||
             error.message.startsWith("Invalid NTFY_TOPIC:") ||
             error.message.startsWith("Authentication failed when sending notification.") ||

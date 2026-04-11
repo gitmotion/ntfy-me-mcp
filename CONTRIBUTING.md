@@ -1,7 +1,5 @@
 # Contributing
 
-Contributions are welcome!
-
 ## Workflow
 
 - Point pull requests to the `dev` or `testing` branches, not `main`.
@@ -32,16 +30,46 @@ npm run build
 
 - Build the project with `npm run build`.
 - Run the server locally with `npm start` or `node build/index.js`.
-- Run the test suite before submitting changes.
+- Run the test suite before submitting changes with `npm test`
 - Ensure the code is clean, well documented, and consistent with the existing project style.
 
 ## NPM Scripts And Commands
 
-| Script / Command | Underlying action | What it does |
-| ---------------- | ----------------- | ------------ |
-| `npm install` | Installs dependencies from `package.json` | Sets up the project locally for development or testing. |
-| `npm run build` | `tsc && chmod +x build/index.js` | Compiles the TypeScript source into `build/` and marks the built entrypoint as executable. |
-| `npm start` | `node build/index.js` | Starts the built MCP server from the compiled output. |
-| `npm test` | `vitest run` | Runs the automated test suite once in non-watch mode. |
+<table>
+  <thead>
+    <tr>
+      <th width="20%">Script / Command</th>
+      <th width="30%">Underlying action</th>
+      <th width="50%">What it does</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>npm install</code></td>
+      <td>Installs dependencies from <code>package.json</code></td>
+      <td>Sets up the project locally for development or testing.</td>
+    </tr>
+    <tr>
+      <td><code>npm run build</code></td>
+      <td><code>tsc && chmod +x build/index.js</code></td>
+      <td>Compiles the TypeScript source into <code>build/</code> and marks the built entrypoint as executable. Runs a full type-check as part of the build.</td>
+    </tr>
+    <tr>
+      <td><code>npm run typecheck</code></td>
+      <td><code>tsc --noEmit</code></td>
+      <td>Runs TypeScript type-checking without emitting output. Use this for fast manual type-checking without triggering a full build.</td>
+    </tr>
+    <tr>
+      <td><code>npm start</code></td>
+      <td><code>node build/index.js</code></td>
+      <td>Starts the built MCP server from the compiled output.</td>
+    </tr>
+    <tr>
+      <td><code>npm test</code></td>
+      <td><code>vitest run</code></td>
+      <td>Runs the automated test suite once in non-watch mode.</td>
+    </tr>
+  </tbody>
+</table>
 
 Thank you for helping improve ntfy-me-mcp 🙏🏻

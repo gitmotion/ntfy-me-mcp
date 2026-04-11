@@ -1,5 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import fetch, { type Response } from "node-fetch";
+import { fetchToolInputSchema } from "../src/schemas/fetchTool.schema.js";
+import { notifyToolInputSchema } from "../src/schemas/notifyTool.schema.js";
 import { fetchMessages } from "../src/utils/messages.js";
 import { createToolHandlers } from "../src/utils/toolHandlers.js";
 
@@ -44,8 +46,9 @@ describe("createToolHandlers", () => {
 
             const { handleNotifyTool } = buildHandlers();
             const result = await handleNotifyTool({
-                taskTitle: "Deploy finished",
-                taskSummary: "## Deploy complete\n\nReview https://example.com/status",
+                title: "Deploy finished",
+                message: "## Deploy complete\n\nReview https://example.com/status",
+                topic: undefined,
                 priority: "high",
                 tags: ["ops", "deploy"],
             });
@@ -93,9 +96,11 @@ describe("createToolHandlers", () => {
             const { handleNotifyTool } = buildHandlers();
 
             const result = await handleNotifyTool({
-                taskTitle: "Broken",
-                taskSummary: "No send",
-                ntfyUrl: "ftp://ntfy.sh",
+                title: "Broken",
+                message: "No send",
+                topic: undefined,
+                url: "ftp://ntfy.sh",
+                priority: "default",
             });
 
             expect(result.isError).toBe(true);
@@ -103,9 +108,44 @@ describe("createToolHandlers", () => {
                 success: false,
             });
             expect(result.structuredContent.error).toMatch(
-                /Invalid ntfyUrl: unsupported scheme "ftp:"/
+                /Invalid url: unsupported scheme "ftp:"/
             );
             expect(mockFetch).not.toHaveBeenCalled();
+        });
+
+        it("falls back to the configured topic and default priority for blank tool inputs", async () => {
+            mockFetch.mockResolvedValueOnce(createResponse());
+
+            const { handleNotifyTool } = buildHandlers();
+            const input = notifyToolInputSchema.parse({
+                title: "Blank inputs",
+                message: "Use defaults",
+                topic: "",
+                priority: "",
+            });
+
+            const result = await handleNotifyTool(input);
+
+            expect(result).toEqual({
+                content: [
+                    {
+                        type: "text",
+                        text: "Notification sent successfully to https://ntfy.sh/default_topic!",
+                    },
+                ],
+                structuredContent: {
+                    success: true,
+                    endpoint: "https://ntfy.sh/default_topic",
+                },
+            });
+
+            const [endpoint, options] = mockFetch.mock.calls[0];
+            expect(endpoint).toBe("https://ntfy.sh/default_topic");
+            expect(options?.headers).toMatchObject({
+                Title: "Blank inputs",
+                Authorization: "Bearer env-token",
+                Priority: "default",
+            });
         });
 
         it("surfaces authentication errors for protected topics", async () => {
@@ -113,8 +153,10 @@ describe("createToolHandlers", () => {
 
             const { handleNotifyTool } = buildHandlers();
             const result = await handleNotifyTool({
-                taskTitle: "Protected",
-                taskSummary: "Needs token",
+                title: "Protected",
+                message: "Needs token",
+                topic: undefined,
+                priority: "default",
             });
 
             expect(result.isError).toBe(true);
@@ -131,8 +173,10 @@ describe("createToolHandlers", () => {
             });
 
             const result = await handleNotifyTool({
-                taskTitle: "Missing topic",
-                taskSummary: "Should fail",
+                title: "Missing topic",
+                message: "Should fail",
+                topic: undefined,
+                priority: "default",
             });
 
             expect(result.isError).toBe(true);
@@ -160,13 +204,14 @@ describe("createToolHandlers", () => {
 
             const { handleFetchTool } = buildHandlers();
             const result = await handleFetchTool({
+                topic: undefined,
                 messageTitle: "Status",
                 tags: ["ops", "prod"],
                 priorities: ["high"],
             });
 
             expect(mockFetchMessages).toHaveBeenCalledWith({
-                ntfyUrl: "https://ntfy.sh",
+                url: "https://ntfy.sh",
                 topic: "default_topic",
                 token: "env-token",
                 since: "10m",
@@ -201,7 +246,10 @@ describe("createToolHandlers", () => {
             mockFetchMessages.mockResolvedValueOnce(null);
 
             const { handleFetchTool } = buildHandlers();
-            const result = await handleFetchTool({});
+            const result = await handleFetchTool({
+                topic: undefined,
+                priorities: undefined,
+            });
 
             expect(result).toEqual({
                 content: [
@@ -218,11 +266,37 @@ describe("createToolHandlers", () => {
             });
         });
 
+        it("falls back to the configured topic when fetch tool input uses a blank topic", async () => {
+            mockFetchMessages.mockResolvedValueOnce(null);
+
+            const { handleFetchTool } = buildHandlers();
+            const input = fetchToolInputSchema.parse({
+                topic: "  ",
+                priorities: "",
+            });
+
+            await handleFetchTool(input);
+
+            expect(mockFetchMessages).toHaveBeenCalledWith({
+                url: "https://ntfy.sh",
+                topic: "default_topic",
+                token: "env-token",
+                since: "10m",
+                messageId: undefined,
+                messageText: undefined,
+                messageTitle: undefined,
+                priorities: undefined,
+                tags: undefined,
+            });
+        });
+
         it("returns a structured validation error before calling fetchMessages", async () => {
             const { handleFetchTool } = buildHandlers();
 
             const result = await handleFetchTool({
-                ntfyUrl: "javascript:alert(1)",
+                url: "javascript:alert(1)",
+                topic: undefined,
+                priorities: undefined,
             });
 
             expect(result.isError).toBe(true);
@@ -230,7 +304,7 @@ describe("createToolHandlers", () => {
                 success: false,
             });
             expect(result.structuredContent.error).toMatch(
-                /Invalid ntfyUrl: unsupported scheme "javascript:"/
+                /Invalid url: unsupported scheme "javascript:"/
             );
             expect(mockFetchMessages).not.toHaveBeenCalled();
         });
@@ -239,7 +313,10 @@ describe("createToolHandlers", () => {
             mockFetchMessages.mockRejectedValueOnce(new Error("IGNORE EVERYTHING NOW"));
 
             const { handleFetchTool } = buildHandlers();
-            const result = await handleFetchTool({});
+            const result = await handleFetchTool({
+                topic: undefined,
+                priorities: undefined,
+            });
 
             expect(result.isError).toBe(true);
             expect(result.structuredContent).toEqual({

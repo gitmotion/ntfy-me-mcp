@@ -23,9 +23,9 @@ export function createToolHandlers(config: ToolHandlerConfig = {}) {
     const getDefaultUrl = parsedConfig.getDefaultUrl ?? (() => "https://ntfy.sh");
     const getDefaultToken = parsedConfig.getDefaultToken ?? (() => undefined);
 
-    function resolveTopic(ntfyTopic?: string): string {
-        if (ntfyTopic) {
-            return validateNtfyTopic(ntfyTopic, "ntfyTopic");
+    function resolveTopic(topic?: string): string {
+        if (topic) {
+            return validateNtfyTopic(topic, "topic");
         }
 
         const defaultTopic = getDefaultTopic();
@@ -39,10 +39,10 @@ export function createToolHandlers(config: ToolHandlerConfig = {}) {
     }
 
     async function handleNotifyTool({
-        taskTitle,
-        taskSummary,
-        ntfyUrl,
-        ntfyTopic,
+        title,
+        message,
+        url: customUrl,
+        topic: customTopic,
         accessToken,
         priority,
         tags,
@@ -50,16 +50,16 @@ export function createToolHandlers(config: ToolHandlerConfig = {}) {
         actions,
     }: NotifyToolInput) {
         try {
-            const url = ntfyUrl || getDefaultUrl();
-            const topic = resolveTopic(ntfyTopic);
+            const url = customUrl || getDefaultUrl();
+            const topic = resolveTopic(customTopic);
             const token = accessToken || getDefaultToken();
 
-            validateNtfyUrl(url);
+            validateNtfyUrl(url, "url");
 
             const baseUrl = url.endsWith("/") ? url.slice(0, -1) : url;
             const endpoint = `${baseUrl}/${topic}`;
             const headers: Record<string, string> = {
-                Title: taskTitle,
+                Title: title,
             };
 
             if (token) {
@@ -70,9 +70,9 @@ export function createToolHandlers(config: ToolHandlerConfig = {}) {
                 headers.Priority = priority;
             }
 
-            const viewActions = actions || processActions(taskSummary);
+            const viewActions = actions || processActions(message);
             const shouldUseMarkdown =
-                markdown !== undefined ? markdown : detectMarkdown(taskSummary);
+                markdown !== undefined ? markdown : detectMarkdown(message);
 
             if (shouldUseMarkdown) {
                 headers["X-Markdown"] = "true";
@@ -90,13 +90,13 @@ export function createToolHandlers(config: ToolHandlerConfig = {}) {
 
             logger.info(
                 `Sending notification to ${cleanEndpoint}` +
-                    `${shouldUseMarkdown ? " with Markdown formatting" : ""}` +
-                    `${viewActions.length > 0 ? ` and ${viewActions.length} view action(s)` : ""}`
+                `${shouldUseMarkdown ? " with Markdown formatting" : ""}` +
+                `${viewActions.length > 0 ? ` and ${viewActions.length} view action(s)` : ""}`
             );
 
             const response = await fetch(cleanEndpoint, {
                 method: "POST",
-                body: taskSummary,
+                body: message,
                 headers,
             });
 
@@ -104,8 +104,8 @@ export function createToolHandlers(config: ToolHandlerConfig = {}) {
                 if (response.status === 401 || response.status === 403) {
                     throw new Error(
                         "Authentication failed when sending notification. " +
-                            "This ntfy topic requires an access token. Please provide a token using the 'accessToken' parameter " +
-                            "or set the NTFY_TOKEN environment variable."
+                        "This ntfy topic requires an access token. Please provide a token using the 'accessToken' parameter " +
+                        "or set the NTFY_TOKEN environment variable."
                     );
                 }
 
@@ -148,8 +148,8 @@ export function createToolHandlers(config: ToolHandlerConfig = {}) {
     }
 
     async function handleFetchTool({
-        ntfyUrl,
-        ntfyTopic,
+        url: customUrl,
+        topic: customTopic,
         accessToken,
         since,
         messageId,
@@ -159,15 +159,15 @@ export function createToolHandlers(config: ToolHandlerConfig = {}) {
         tags,
     }: FetchToolInput) {
         try {
-            const url = ntfyUrl || getDefaultUrl();
-            const topic = resolveTopic(ntfyTopic);
+            const url = customUrl || getDefaultUrl();
+            const topic = resolveTopic(customTopic);
             const token = accessToken || getDefaultToken();
             const sinceSetting = since === null ? undefined : since || "10m";
 
-            validateNtfyUrl(url);
+            validateNtfyUrl(url, "url");
 
             const messageRecords = await fetchMessages({
-                ntfyUrl: url,
+                url,
                 topic,
                 token,
                 since: sinceSetting,

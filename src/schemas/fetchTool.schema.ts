@@ -1,15 +1,15 @@
 import { z } from "zod";
+import { createOptionalNtfyPrioritiesSchema } from "./ntfyPriority.schema.js";
 import { createOptionalNtfyTopicSchema } from "./ntfyTopic.schema.js";
 
-
 export const fetchToolInputSchema = z.object({
-    ntfyUrl: z
+    url: z
         .string()
         .optional()
         .describe(
             "Optional custom ntfy server URL (defaults to NTFY_URL env var or https://ntfy.sh)"
         ),
-    ntfyTopic: createOptionalNtfyTopicSchema(
+    topic: createOptionalNtfyTopicSchema(
         "Optional custom ntfy topic/channel to get messages from (defaults to NTFY_TOPIC env var)"
     ),
     accessToken: z
@@ -33,12 +33,9 @@ export const fetchToolInputSchema = z.object({
         .string()
         .optional()
         .describe("Find messages with this exact title/subject"),
-    priorities: z
-        .union([z.string(), z.array(z.string())])
-        .optional()
-        .describe(
-            "Find messages with specific priority levels (min, low, default, high, max)"
-        ),
+    priorities: createOptionalNtfyPrioritiesSchema(
+        "Find messages with specific priority levels (min, low, default, high, max)"
+    ),
     tags: z
         .union([z.string(), z.array(z.string())])
         .optional()
