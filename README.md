@@ -43,8 +43,8 @@ The server includes intelligent features like automatic URL detection for creati
               <td><a href="https://glama.ai/mcp/servers/@gitmotion/ntfy-me-mcp"><img width="250" src="https://glama.ai/mcp/servers/@gitmotion/ntfy-me-mcp/badge" alt="ntfy-me-mcp MCP server" /></a></td>
             </tr>
             <tr>
-              <td>Smithery.ai</td>
-              <td><a href="https://smithery.ai/server/@gitmotion/ntfy-me-mcp"><img src="https://smithery.ai/badge/@gitmotion/ntfy-me-mcp" alt="smithery badge" /></a></td>
+              <td>LightNow</td>
+              <td><a href="https://lightnow.ai/servers/io.github.gitmotion/ntfy-me-mcp"><img src="https://lightnow.ai/badge/io.github.gitmotion/ntfy-me-mcp" alt="LightNow capabilities" /></a></td>
             </tr>
             <tr>
               <td>MseeP.ai</td>
