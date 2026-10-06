@@ -44,10 +44,10 @@ src/
   utils/
     toolHandlers.ts        createToolHandlers(): owns ntfy_me and ntfy_me_fetch behavior
     messages.ts            fetchMessages(): poll request, NDJSON parsing, schema-validated messages
-    headers.ts             encodeHeaderValue(): RFC 2047-encodes non-ASCII header values (ntfy decodes them)
     validation.ts          security-sensitive checks: URL scheme, topic rules, error sanitization
     actions.ts             auto-detect URLs in a message → up to 3 ntfy "view" actions
     markdown.ts            markdown detection (regex fast path, markdown-it fallback)
+    headers.ts             encodeHeaderValue(): RFC 2047-encodes non-ASCII header values (ntfy decodes them)
     logger.ts              Logger singleton (every level writes to stderr) + describeError() for log lines
 tests/                     Vitest suites, one per source concern (see Testing)
 build/                     compiled output; COMMITTED to git (see below)
