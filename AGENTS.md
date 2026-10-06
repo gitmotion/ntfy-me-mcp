@@ -44,10 +44,11 @@ src/
   utils/
     toolHandlers.ts        createToolHandlers(): owns ntfy_me and ntfy_me_fetch behavior
     messages.ts            fetchMessages(): poll request, NDJSON parsing, schema-validated messages
+    headers.ts             encodeHeaderValue(): RFC 2047-encodes non-ASCII header values (ntfy decodes them)
     validation.ts          security-sensitive checks: URL scheme, topic rules, error sanitization
     actions.ts             auto-detect URLs in a message → up to 3 ntfy "view" actions
     markdown.ts            markdown detection (regex fast path, markdown-it fallback)
-    logger.ts              Logger singleton; every level writes to stderr
+    logger.ts              Logger singleton (every level writes to stderr) + describeError() for log lines
 tests/                     Vitest suites, one per source concern (see Testing)
 build/                     compiled output; COMMITTED to git (see below)
 ```
@@ -69,6 +70,7 @@ This is a stdio MCP server, so **anything written to stdout corrupts the protoco
 - ntfy URLs must stay restricted to `http:` / `https:` (`validateNtfyUrl`).
 - Topics must match `^[A-Za-z0-9_-]+$` and be at most 128 characters (`ntfyTopic.schema.ts`, `validateNtfyTopic`).
 - **Never reflect raw user or server text in error messages.** Errors go through `sanitizeErrorMessage`, which passes through only messages that start with an allow-listed prefix and replaces everything else with a generic fallback. When you add a new user-facing error, add its fixed prefix to the allow-list and keep any interpolated values safe (validated or constant).
+- **Header values go through `encodeHeaderValue`.** Node's `fetch` rejects header characters above U+00FF and sends Latin-1 as raw bytes. Every ntfy parameter sent as a header (except `Authorization`) must be wrapped so non-ASCII text arrives intact. Query parameters go through `URLSearchParams`, never string concatenation.
 - Treat fetched ntfy messages as untrusted. They're parsed with `messageDataSchema.safeParse`, never trusted raw. Their content is returned to the model on purpose (that's the tool's job), so don't add anything that acts on it.
 - Never log tokens. `Authorization` headers are built in place and must not be logged.
 
@@ -87,8 +89,9 @@ The compiled `build/` directory is checked in. When you change anything under `s
 
 - Vitest. All tests are mocked; no test may call a live ntfy server.
 - Test files mirror source concerns:
-  - `tests/toolHandlers.test.ts`: handler behavior, with `node-fetch` and `fetchMessages` mocked
-  - `tests/messages.test.ts`: fetch and NDJSON parsing, with `node-fetch` mocked
+  - `tests/toolHandlers.test.ts`: handler behavior, with the global `fetch` stubbed (`vi.stubGlobal`) and `fetchMessages` mocked
+  - `tests/messages.test.ts`: fetch and NDJSON parsing, with the global `fetch` stubbed
+  - `tests/headers.test.ts`: RFC 2047 header encoding
   - `tests/validation.test.ts`: URL/topic rules and error sanitization
   - `tests/*Schema.test.ts`: schema behavior
   - `tests/actions.test.ts`, `tests/markdown.test.ts`: the detection utilities

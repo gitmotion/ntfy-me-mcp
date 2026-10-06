@@ -536,7 +536,7 @@ TypeScript typing.",
   <tbody>
     <tr>
       <td valign="top"><code>title</code></td>
-      <td valign="top">The notification title</td>
+      <td valign="top">The notification title. Unicode and emoji are supported</td>
       <td valign="top">Yes</td>
       <td valign="top">—</td>
     </tr>
@@ -770,7 +770,7 @@ Both tools return human-readable `content` for the model and a machine-readable 
 
 **Invalid arguments** (a missing `title`, a malformed `topic`, an unknown `priority`, …) are rejected by the MCP SDK's schema validation before the tool runs. They come back with `isError: true` and a text-only `MCP error -32602: Input validation error: …` message that names the field and the expected format, with no `structuredContent`.
 
-**Failures inside the tool** set `isError: true` and return `{ "success": false, "error": "<message>" }`. The error message is specific for an invalid `url` or `topic`, an authentication failure (HTTP 401/403), or a non-2xx status code (`... Status code: 500`). Anything else is reported generically (`Failed to send ntfy notification` / `Failed to fetch ntfy messages`), so raw input or server text is never echoed back to the model.
+**Failures inside the tool** set `isError: true` and return `{ "success": false, "error": "<message>" }`. The error message is specific for an invalid `url` or `topic`, an authentication failure (HTTP 401/403), a non-2xx status code (`... Status code: 500`), or a connection failure (`... could not connect to the ntfy server (ECONNREFUSED)`, using Node's error code). Anything else is reported generically (`Failed to send ntfy notification` / `Failed to fetch ntfy messages`), so raw input or server text is never echoed back to the model. The full underlying error is written to the server's stderr log.
 
 ## Security
 
