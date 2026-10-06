@@ -26,9 +26,15 @@ const __dirname = dirname(__filename);
 const packagePath = join(__dirname, "..", "package.json");
 const packageJson = JSON.parse(fs.readFileSync(packagePath, "utf8"));
 
-// stdout is the MCP JSON-RPC channel: explicit options override any
-// DOTENV_DEBUG / DOTENV_CONFIG_* env vars that would make dotenv print to it.
-dotenv.config({ quiet: true, debug: false });
+// Explicit options take precedence over dotenv's DOTENV_* / DOTENV_CONFIG_*
+// env vars: never print (stdout is the MCP JSON-RPC channel), never let a
+// .env override the client's config, and only read ./.env (dotenv 17 behavior).
+dotenv.config({
+  quiet: true,
+  debug: false,
+  override: false,
+  path: join(process.cwd(), ".env"),
+});
 
 const NTFY_TOPIC = process.env.NTFY_TOPIC;
 const NTFY_URL = process.env.NTFY_URL || "https://ntfy.sh";

@@ -22,7 +22,7 @@ Configuration comes from env vars (`NTFY_TOPIC` required; `NTFY_URL` defaults to
 | `npm install` | Install dependencies (`npm ci` in CI and Docker) |
 | `npm run build` | `tsc` → `build/`, then `chmod +x build/index.js`. Also a full type-check |
 | `npm run typecheck` | Fast type-check of `src/` without emitting |
-| `npm test` | Vitest, single run (`vitest run`). Mocked, no network |
+| `npm test` | Vitest, single run (`vitest run`). Mocked, no network. `tests/stdout.test.ts` spawns `build/index.js`, so build first |
 | `npm start` | Run the built server on stdio (`node build/index.js`). Needs `NTFY_TOPIC` |
 
 CI (`.github/workflows/build-and-test.yml`) runs `npm ci && npm run build && npm test` on Node 24 for every push and pull request. Run the same three before you finish.
@@ -92,6 +92,7 @@ The compiled `build/` directory is checked in. When you change anything under `s
   - `tests/validation.test.ts`: URL/topic rules and error sanitization
   - `tests/*Schema.test.ts`: schema behavior
   - `tests/actions.test.ts`, `tests/markdown.test.ts`: the detection utilities
+  - `tests/stdout.test.ts`: spawns the built server; stdout stays JSON-RPC-only and dotenv can't override the client's env
 - Any change to tool handlers, schemas, validation or fetch parsing needs new or updated tests in the matching file.
 - Tests are not type-checked by `npm run typecheck` (`tsconfig.json` includes only `src/`), so keep them type-correct by hand.
 
