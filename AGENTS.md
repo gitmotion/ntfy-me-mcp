@@ -70,7 +70,6 @@ This is a stdio MCP server, so **anything written to stdout corrupts the protoco
 - ntfy URLs must stay restricted to `http:` / `https:` (`validateNtfyUrl`).
 - Topics must match `^[A-Za-z0-9_-]+$` and be at most 128 characters (`ntfyTopic.schema.ts`, `validateNtfyTopic`).
 - **Never reflect raw user or server text in error messages.** Errors go through `sanitizeErrorMessage`, which passes through only messages that start with an allow-listed prefix and replaces everything else with a generic fallback. When you add a new user-facing error, add its fixed prefix to the allow-list and keep any interpolated values safe (validated or constant).
-- **Header values go through `encodeHeaderValue`.** Node's `fetch` rejects header characters above U+00FF and sends Latin-1 as raw bytes. Every ntfy parameter sent as a header (except `Authorization`) must be wrapped so non-ASCII text arrives intact. Query parameters go through `URLSearchParams`, never string concatenation.
 - Treat fetched ntfy messages as untrusted. They're parsed with `messageDataSchema.safeParse`, never trusted raw. Their content is returned to the model on purpose (that's the tool's job), so don't add anything that acts on it.
 - Never log tokens. `Authorization` headers are built in place and must not be logged.
 
@@ -81,6 +80,7 @@ This is a stdio MCP server, so **anything written to stdout corrupts the protoco
 - Keep the split: schemas in `src/schemas/`, ntfy-specific security checks in `validation.ts`, tool behavior in `toolHandlers.ts`, network and parsing for fetch in `messages.ts`, startup and registration in `index.ts`. Don't fold them back into one file.
 - Optional tool inputs treat `""` as "not provided" (agents often send empty strings). Follow the existing helpers in `ntfyTopic.schema.ts` and `ntfyPriority.schema.ts` when you add optional enum or string inputs.
 - Handlers return both `content` (text for the model) and `structuredContent` (data), and set `isError: true` on failure.
+- **Header values go through `encodeHeaderValue`.** Node's `fetch` rejects header characters above U+00FF and sends Latin-1 as raw bytes. Every ntfy parameter sent as a header (except `Authorization`) must be wrapped so non-ASCII text arrives intact. Query parameters go through `URLSearchParams`, never string concatenation.
 
 ### `build/` is committed
 The compiled `build/` directory is checked in. When you change anything under `src/`, run `npm run build` and **commit the regenerated `build/` files in the same change**. A docs-only change should leave `build/` untouched. Check with `git status` after building.
@@ -91,7 +91,7 @@ The compiled `build/` directory is checked in. When you change anything under `s
 - Test files mirror source concerns:
   - `tests/toolHandlers.test.ts`: handler behavior, with the global `fetch` stubbed (`vi.stubGlobal`) and `fetchMessages` mocked
   - `tests/messages.test.ts`: fetch and NDJSON parsing, with the global `fetch` stubbed
-  - `tests/headers.test.ts`: RFC 2047 header encoding
+  - `tests/headers.test.ts`: RFC 2047 header encoding; `tests/toolHandlers.headers.test.ts`: encoded headers and error diagnostics in the handlers; `tests/networkErrors.test.ts`: connection-error sanitization
   - `tests/validation.test.ts`: URL/topic rules and error sanitization
   - `tests/*Schema.test.ts`: schema behavior
   - `tests/actions.test.ts`, `tests/markdown.test.ts`: the detection utilities
