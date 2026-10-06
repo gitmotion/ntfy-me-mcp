@@ -1,11 +1,11 @@
-import fetch from "node-fetch";
 import { type FetchToolInput } from "../schemas/fetchTool.schema.js";
 import { type NotifyToolInput } from "../schemas/notifyTool.schema.js";
 import {
     toolHandlerConfigSchema,
     type ToolHandlerConfig,
 } from "../schemas/toolHandlerConfig.schema.js";
-import { Logger } from "./logger.js";
+import { describeError, Logger } from "./logger.js";
+import { encodeHeaderValue } from "./headers.js";
 import { detectMarkdown } from "./markdown.js";
 import { fetchMessages } from "./messages.js";
 import { processActions } from "./actions.js";
@@ -59,7 +59,7 @@ export function createToolHandlers(config: ToolHandlerConfig = {}) {
             const baseUrl = url.endsWith("/") ? url.slice(0, -1) : url;
             const endpoint = `${baseUrl}/${topic}`;
             const headers: Record<string, string> = {
-                Title: title,
+                Title: encodeHeaderValue(title),
             };
 
             if (token) {
@@ -79,11 +79,11 @@ export function createToolHandlers(config: ToolHandlerConfig = {}) {
             }
 
             if (tags && tags.length > 0) {
-                headers.Tags = tags.join(",");
+                headers.Tags = encodeHeaderValue(tags.join(","));
             }
 
             if (viewActions.length > 0) {
-                headers["X-Actions"] = JSON.stringify(viewActions);
+                headers["X-Actions"] = encodeHeaderValue(JSON.stringify(viewActions));
             }
 
             const cleanEndpoint = endpoint.trim();
@@ -127,6 +127,7 @@ export function createToolHandlers(config: ToolHandlerConfig = {}) {
                 },
             };
         } catch (error: unknown) {
+            logger.error(`Failed to send ntfy notification: ${describeError(error)}`);
             const message = sanitizeErrorMessage(
                 error,
                 "Failed to send ntfy notification"
@@ -226,6 +227,7 @@ export function createToolHandlers(config: ToolHandlerConfig = {}) {
                 },
             };
         } catch (error: unknown) {
+            logger.error(`Failed to fetch ntfy messages: ${describeError(error)}`);
             const message = sanitizeErrorMessage(error, "Failed to fetch ntfy messages");
             return {
                 content: [

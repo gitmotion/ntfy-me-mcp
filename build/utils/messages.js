@@ -1,4 +1,4 @@
-import fetch from 'node-fetch';
+import { encodeHeaderValue } from './headers.js';
 import { Logger } from './logger.js';
 import { messageDataSchema, } from '../schemas/messageData.schema.js';
 import { ntfyFetchOptionsSchema, } from '../schemas/ntfyFetchOptions.schema.js';
@@ -23,11 +23,11 @@ export async function fetchMessages(options) {
         const baseUrl = parsedOptions.url.endsWith("/")
             ? parsedOptions.url.slice(0, -1)
             : parsedOptions.url;
-        // Start with the basic endpoint
-        let endpoint = `${baseUrl}/${topic}/json?poll=1`;
-        // Add the since parameter if provided
+        // Build the poll URL; URLSearchParams encodes `since` so it can't add parameters
+        const endpoint = new URL(`${baseUrl}/${topic}/json`);
+        endpoint.searchParams.set('poll', '1');
         if (parsedOptions.since !== undefined && parsedOptions.since !== null) {
-            endpoint += `&since=${parsedOptions.since}`;
+            endpoint.searchParams.set('since', String(parsedOptions.since));
         }
         // Prepare headers
         const headers = {};
@@ -36,14 +36,15 @@ export async function fetchMessages(options) {
             headers.Authorization = `Bearer ${parsedOptions.token}`;
         }
         // Add filter headers if provided
+        // Filter values are RFC 2047-encoded when they aren't plain ASCII (see headers.ts)
         if (parsedOptions.messageId) {
-            headers['X-ID'] = parsedOptions.messageId;
+            headers['X-ID'] = encodeHeaderValue(parsedOptions.messageId);
         }
         if (parsedOptions.messageText) {
-            headers['X-Message'] = parsedOptions.messageText;
+            headers['X-Message'] = encodeHeaderValue(parsedOptions.messageText);
         }
         if (parsedOptions.messageTitle) {
-            headers['X-Title'] = parsedOptions.messageTitle;
+            headers['X-Title'] = encodeHeaderValue(parsedOptions.messageTitle);
         }
         if (parsedOptions.priorities) {
             // Handle both string and string[] formats
@@ -57,7 +58,7 @@ export async function fetchMessages(options) {
             const tagsValue = Array.isArray(parsedOptions.tags)
                 ? parsedOptions.tags.join(',')
                 : parsedOptions.tags;
-            headers['X-Tags'] = tagsValue;
+            headers['X-Tags'] = encodeHeaderValue(tagsValue);
         }
         // Log helpful message with filter information
         const appliedFilters = [];
@@ -74,7 +75,7 @@ export async function fetchMessages(options) {
         logger.info(`Fetching messages for topic ${topic}` +
             `${appliedFilters.length > 0 ? ` with filters: ${appliedFilters.join(', ')}` : ''}`);
         // Make the API call
-        const response = await fetch(endpoint, { headers });
+        const response = await fetch(endpoint.toString(), { headers });
         if (!response.ok) {
             // Handle authentication errors
             if (response.status === 401 || response.status === 403) {

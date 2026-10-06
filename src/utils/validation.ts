@@ -76,6 +76,29 @@ export function validateNtfyTopic(
     return trimmedTopic;
 }
 
+// Node error codes are constant identifiers (ECONNREFUSED, UND_ERR_CONNECT_TIMEOUT,
+// CERT_HAS_EXPIRED, …), so a code matching this shape is safe to show the model.
+const ERROR_CODE_PATTERN = /^[A-Z][A-Z0-9_]{1,63}$/;
+
+/**
+ * Extracts the error code from a native `fetch` network failure
+ * (`TypeError: fetch failed` with a `cause.code`), if it looks like a plain
+ * Node error identifier.
+ */
+function getConnectionErrorCode(error: unknown): string | undefined {
+    if (!(error instanceof TypeError) || error.message !== "fetch failed") {
+        return undefined;
+    }
+
+    const cause: unknown = error.cause;
+    const code =
+        typeof cause === "object" && cause !== null
+            ? (cause as { code?: unknown }).code
+            : undefined;
+
+    return typeof code === "string" && ERROR_CODE_PATTERN.test(code) ? code : undefined;
+}
+
 /**
  * Sanitizes an error message to prevent prompt injection via reflected input.
  * Truncates the message and removes any potential instruction overrides.
@@ -88,6 +111,11 @@ export function sanitizeErrorMessage(
     error: unknown,
     fallbackMessage: string
 ): string {
+    const connectionErrorCode = getConnectionErrorCode(error);
+    if (connectionErrorCode) {
+        return `${fallbackMessage}: could not connect to the ntfy server (${connectionErrorCode})`;
+    }
+
     if (error instanceof Error) {
         // Only allow explicit safe error messages through directly.
         if (
