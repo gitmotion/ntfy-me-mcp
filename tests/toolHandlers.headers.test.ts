@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fetchMessages } from "../src/utils/messages.js";
 import { Logger } from "../src/utils/logger.js";
 import { createToolHandlers } from "../src/utils/toolHandlers.js";
@@ -15,11 +15,12 @@ function createResponse({ ok = true, status = 200 }: { ok?: boolean; status?: nu
     return { ok, status } as Response;
 }
 
-function buildHandlers() {
+function buildHandlers(overrides: Partial<Parameters<typeof createToolHandlers>[0]> = {}) {
     return createToolHandlers({
         getDefaultTopic: () => "default_topic",
         getDefaultUrl: () => "https://ntfy.sh",
         getDefaultToken: () => "env-token",
+        ...overrides,
     });
 }
 
@@ -29,6 +30,10 @@ describe("createToolHandlers (#18)", () => {
     beforeEach(() => {
         mockFetch.mockReset();
         mockFetchMessages.mockReset();
+    });
+
+    afterEach(() => {
+        vi.restoreAllMocks();
     });
 
     describe("non-ASCII header values (#18)", () => {
@@ -121,7 +126,6 @@ describe("createToolHandlers (#18)", () => {
             expect(errorSpy).toHaveBeenCalledWith(
                 expect.stringContaining("Cannot convert argument to a ByteString")
             );
-            errorSpy.mockRestore();
         });
 
         it("logs fetch-tool failures to stderr too", async () => {
@@ -136,7 +140,63 @@ describe("createToolHandlers (#18)", () => {
                 error: "Failed to fetch ntfy messages: could not connect to the ntfy server (ECONNREFUSED)",
             });
             expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining("ECONNREFUSED"));
-            errorSpy.mockRestore();
+        });
+    });
+
+    describe("secrets never reach the stderr log (#18 review)", () => {
+        it("rejects an access token with control characters before building the request", async () => {
+            const errorSpy = vi.spyOn(Logger.getInstance(), "error").mockImplementation(() => {});
+
+            const { handleNotifyTool } = buildHandlers({ getDefaultToken: () => "sk_SECRET\nX" });
+            const result = await handleNotifyTool({
+                title: "T",
+                message: "m",
+                topic: undefined,
+                priority: "default",
+            });
+
+            expect(result.structuredContent).toEqual({
+                success: false,
+                error: "Invalid access token: it may only contain printable ASCII characters without spaces.",
+            });
+            expect(mockFetch).not.toHaveBeenCalled();
+            expect(errorSpy.mock.calls.flat().join(" ")).not.toContain("sk_SECRET");
+        });
+
+        it("rejects URLs that embed credentials, and doesn't log them", async () => {
+            const errorSpy = vi.spyOn(Logger.getInstance(), "error").mockImplementation(() => {});
+
+            const { handleNotifyTool } = buildHandlers({
+                getDefaultUrl: () => "https://admin:hunter2@ntfy.example.com",
+            });
+            const result = await handleNotifyTool({
+                title: "T",
+                message: "m",
+                topic: undefined,
+                priority: "default",
+            });
+
+            expect(result.structuredContent.error).toMatch(/^Invalid url: credentials in the URL are not supported/);
+            expect(mockFetch).not.toHaveBeenCalled();
+            expect(errorSpy.mock.calls.flat().join(" ")).not.toContain("hunter2");
+        });
+
+        it("redacts bearer values and URL credentials from logged errors", async () => {
+            const errorSpy = vi.spyOn(Logger.getInstance(), "error").mockImplementation(() => {});
+            mockFetch.mockRejectedValueOnce(
+                new TypeError(
+                    'Headers.append: "Bearer sk_SECRET value" is an invalid header value. See https://user:pw@host/x'
+                )
+            );
+
+            const { handleNotifyTool } = buildHandlers();
+            await handleNotifyTool({ title: "T", message: "m", topic: undefined, priority: "default" });
+
+            const logged = errorSpy.mock.calls.flat().join(" ");
+            expect(logged).toContain("Bearer [REDACTED]");
+            expect(logged).toContain("https://[REDACTED]@host/x");
+            expect(logged).not.toContain("sk_SECRET");
+            expect(logged).not.toContain("user:pw");
         });
     });
 });

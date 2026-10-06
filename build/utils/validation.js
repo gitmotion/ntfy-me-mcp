@@ -15,6 +15,9 @@ export function validateNtfyUrl(url, fieldName = "ntfyUrl") {
     catch {
         throw new Error(`Invalid ${fieldName}: not a valid URL. Only http:// and https:// URLs are supported.`);
     }
+    if (parsed.username || parsed.password) {
+        throw new Error(`Invalid ${fieldName}: credentials in the URL are not supported. Use NTFY_TOKEN or the accessToken parameter instead.`);
+    }
     if (parsed.protocol !== "https:" && parsed.protocol !== "http:") {
         throw new Error(`Invalid ${fieldName}: unsupported scheme "${parsed.protocol}". Only http:// and https:// URLs are supported.`);
     }
@@ -56,12 +59,26 @@ export function validateNtfyTopic(topic, fieldName = "ntfyTopic") {
 // Node error codes are constant identifiers (ECONNREFUSED, UND_ERR_CONNECT_TIMEOUT,
 // CERT_HAS_EXPIRED, …), so a code matching this shape is safe to show the model.
 const ERROR_CODE_PATTERN = /^[A-Z][A-Z0-9_]{1,63}$/;
+// Codes that mean no connection was established, so the request can't have
+// reached ntfy. Anything else (e.g. a reset after sending) may have published.
+const CONNECT_PHASE_CODES = new Set([
+    "ECONNREFUSED",
+    "ENOTFOUND",
+    "EAI_AGAIN",
+    "EHOSTUNREACH",
+    "ENETUNREACH",
+    "UND_ERR_CONNECT_TIMEOUT",
+]);
+const TLS_ERROR_CODE_PATTERN = /CERT|SELF_SIGNED|UNABLE_TO_|^ERR_TLS_|^ERR_SSL_/;
+function isConnectPhaseError(code) {
+    return CONNECT_PHASE_CODES.has(code) || TLS_ERROR_CODE_PATTERN.test(code);
+}
 /**
  * Extracts the error code from a native `fetch` network failure
  * (`TypeError: fetch failed` with a `cause.code`), if it looks like a plain
  * Node error identifier.
  */
-function getConnectionErrorCode(error) {
+function getNetworkErrorCode(error) {
     if (!(error instanceof TypeError) || error.message !== "fetch failed") {
         return undefined;
     }
@@ -80,9 +97,11 @@ function getConnectionErrorCode(error) {
  * @returns A sanitized error message string
  */
 export function sanitizeErrorMessage(error, fallbackMessage) {
-    const connectionErrorCode = getConnectionErrorCode(error);
-    if (connectionErrorCode) {
-        return `${fallbackMessage}: could not connect to the ntfy server (${connectionErrorCode})`;
+    const networkErrorCode = getNetworkErrorCode(error);
+    if (networkErrorCode) {
+        return isConnectPhaseError(networkErrorCode)
+            ? `${fallbackMessage}: could not connect to the ntfy server (${networkErrorCode})`
+            : `${fallbackMessage}: the request to the ntfy server failed (${networkErrorCode})`;
     }
     if (error instanceof Error) {
         // Only allow explicit safe error messages through directly.
@@ -92,6 +111,7 @@ export function sanitizeErrorMessage(error, fallbackMessage) {
             error.message.startsWith("Invalid topic:") ||
             error.message.startsWith("Invalid ntfyTopic:") ||
             error.message.startsWith("Invalid NTFY_TOPIC:") ||
+            error.message.startsWith("Invalid access token:") ||
             error.message.startsWith("Authentication failed when sending notification.") ||
             error.message.startsWith("Authentication failed when fetching messages.") ||
             error.message.startsWith("Failed to send ntfy notification. Status code:") ||
@@ -101,4 +121,20 @@ export function sanitizeErrorMessage(error, fallbackMessage) {
         return fallbackMessage;
     }
     return fallbackMessage;
+}
+const ACCESS_TOKEN_PATTERN = /^[\x21-\x7e]+$/;
+/**
+ * Checks that an access token can be sent in an Authorization header.
+ * Rejecting it here, with a fixed message, keeps the token out of the
+ * header-validation errors fetch would otherwise throw (and we'd log).
+ *
+ * @param token The access token (from accessToken or NTFY_TOKEN)
+ * @returns The token unchanged when it's valid
+ * @throws Error with an allow-listed message when it isn't
+ */
+export function validateAccessToken(token) {
+    if (!ACCESS_TOKEN_PATTERN.test(token)) {
+        throw new Error("Invalid access token: it may only contain printable ASCII characters without spaces.");
+    }
+    return token;
 }

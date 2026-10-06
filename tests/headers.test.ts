@@ -27,6 +27,14 @@ describe("encodeHeaderValue", () => {
         expect(decodeRfc2047(encoded)).toBe(value);
     });
 
+    it("encodes ASCII that contains an encoded-word marker, so ntfy can't rewrite it", () => {
+        const value = "ascii =?UTF-8?B?aGFja2Vk?= literal";
+        const encoded = encodeHeaderValue(value);
+
+        expect(encoded).not.toBe(value);
+        expect(decodeRfc2047(encoded)).toBe(value);
+    });
+
     it("produces only header-safe ASCII", () => {
         expect(encodeHeaderValue("🚀 ünïcödé")).toMatch(/^[\x20-\x7e]+$/);
     });

@@ -2,7 +2,7 @@ import { encodeHeaderValue } from './headers.js';
 import { Logger } from './logger.js';
 import { messageDataSchema, } from '../schemas/messageData.schema.js';
 import { ntfyFetchOptionsSchema, } from '../schemas/ntfyFetchOptions.schema.js';
-import { validateNtfyTopic, validateNtfyUrl } from './validation.js';
+import { validateAccessToken, validateNtfyTopic, validateNtfyUrl } from './validation.js';
 const logger = Logger.getInstance();
 /**
  * Fetches cached messages from an ntfy server
@@ -33,7 +33,7 @@ export async function fetchMessages(options) {
         const headers = {};
         // Add authorization if token is provided
         if (parsedOptions.token) {
-            headers.Authorization = `Bearer ${parsedOptions.token}`;
+            headers.Authorization = `Bearer ${validateAccessToken(parsedOptions.token)}`;
         }
         // Add filter headers if provided
         // Filter values are RFC 2047-encoded when they aren't plain ASCII (see headers.ts)

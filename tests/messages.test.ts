@@ -100,6 +100,7 @@ describe("fetchMessages", () => {
         await fetchMessages({
             url: "https://ntfy.sh",
             topic: "alerts",
+            messageId: "id-🔔",
             messageTitle: "🔔 Build",
             messageText: "terminé",
             tags: ["🚀", "ok"],
@@ -108,9 +109,19 @@ describe("fetchMessages", () => {
         const headers = mockFetch.mock.calls[0][1]?.headers as Record<string, string>;
         const decode = (value: string) =>
             Buffer.from(/^=\?UTF-8\?B\?(.*)\?=$/.exec(value)?.[1] ?? "", "base64").toString("utf8");
+        expect(decode(headers["X-ID"])).toBe("id-🔔");
         expect(decode(headers["X-Title"])).toBe("🔔 Build");
         expect(decode(headers["X-Message"])).toBe("terminé");
         expect(decode(headers["X-Tags"])).toBe("🚀,ok");
+    });
+
+    it("rejects an access token that can't be sent as a header, without calling fetch", async () => {
+        await expect(
+            fetchMessages({ url: "https://ntfy.sh", topic: "alerts", token: "sk_SECRET\nX" })
+        ).rejects.toThrow(
+            "Invalid access token: it may only contain printable ASCII characters without spaces."
+        );
+        expect(mockFetch).not.toHaveBeenCalled();
     });
 
     it("URL-encodes `since` so it can't inject extra query parameters", async () => {

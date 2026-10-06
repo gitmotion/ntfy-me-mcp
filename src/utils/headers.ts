@@ -11,10 +11,12 @@ const PLAIN_HEADER_VALUE = /^[\x20-\x7e]*$/;
  * `=?UTF-8?B?<base64>?=`.
  *
  * @param value The header value to send
- * @returns The value unchanged when it's printable ASCII, otherwise RFC 2047-encoded
+ * @returns The value unchanged when it's printable ASCII without "=?", otherwise RFC 2047-encoded
  */
 export function encodeHeaderValue(value: string): string {
-    if (PLAIN_HEADER_VALUE.test(value)) {
+    // ASCII containing "=?" is encoded too: ntfy would otherwise decode any
+    // literal "=?charset?B?…?=" sequence inside it and change the text.
+    if (PLAIN_HEADER_VALUE.test(value) && !value.includes("=?")) {
         return value;
     }
 

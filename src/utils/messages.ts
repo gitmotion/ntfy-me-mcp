@@ -8,7 +8,7 @@ import {
   ntfyFetchOptionsSchema,
   type NtfyFetchOptions,
 } from '../schemas/ntfyFetchOptions.schema.js';
-import { validateNtfyTopic, validateNtfyUrl } from './validation.js';
+import { validateAccessToken, validateNtfyTopic, validateNtfyUrl } from './validation.js';
 
 const logger = Logger.getInstance();
 
@@ -46,7 +46,7 @@ export async function fetchMessages(options: NtfyFetchOptions): Promise<Record<s
 
     // Add authorization if token is provided
     if (parsedOptions.token) {
-      headers.Authorization = `Bearer ${parsedOptions.token}`;
+      headers.Authorization = `Bearer ${validateAccessToken(parsedOptions.token)}`;
     }
 
     // Add filter headers if provided

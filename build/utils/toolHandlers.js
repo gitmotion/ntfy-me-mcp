@@ -1,6 +1,7 @@
 import { toolHandlerConfigSchema, } from "../schemas/toolHandlerConfig.schema.js";
 import { describeError, Logger } from "./logger.js";
 import { encodeHeaderValue } from "./headers.js";
+import { validateAccessToken } from "./validation.js";
 import { detectMarkdown } from "./markdown.js";
 import { fetchMessages } from "./messages.js";
 import { processActions } from "./actions.js";
@@ -33,7 +34,7 @@ export function createToolHandlers(config = {}) {
                 Title: encodeHeaderValue(title),
             };
             if (token) {
-                headers.Authorization = `Bearer ${token}`;
+                headers.Authorization = `Bearer ${validateAccessToken(token)}`;
             }
             if (priority) {
                 headers.Priority = priority;
