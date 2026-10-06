@@ -31,6 +31,9 @@
   "bin": {
     "ntfy-me-mcp": "build/index.js"
   },
+  "engines": {
+    "node": ">=22"
+  },
   "files": [
     "build/**/*",
     "README.md",
@@ -43,20 +46,19 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "1.29.0",
-    "@types/markdown-it": "14.1.2",
-    "dotenv": "17.4.1",
-    "markdown-it": "14.1.1",
+    "@modelcontextprotocol/sdk": "1.32.0",
+    "dotenv": "18.0.5",
+    "markdown-it": "15.0.2",
     "node-fetch": "3.3.2",
     "prompts": "2.4.2",
-    "zod": "4.3.6"
+    "zod": "4.6.5"
   },
   "devDependencies": {
-    "@types/node": "25.5.2",
+    "@types/node": "22.20.5",
     "@types/node-fetch": "2.6.13",
     "@types/prompts": "2.4.9",
-    "typescript": "5.9.3",
-    "vitest": "4.1.3"
+    "typescript": "7.0.2",
+    "vitest": "5.0.3"
   },
   "author": "gitmotion",
   "license": "GPL-3.0",
