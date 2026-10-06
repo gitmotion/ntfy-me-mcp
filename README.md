@@ -472,7 +472,7 @@ This MCP server supports both authenticated and unauthenticated ntfy endpoints:
 | `inputs[].type` | `"promptString"` | Prompts the user for the token at runtime |
 
 
-> If the client resolves `"${input:ntfy_token}"` before launch, the server receives the real token directly. If the placeholder is passed through unchanged, ntfy-me-mcp detects that unresolved input reference and prompts for the token itself at startup.
+> Your MCP client must resolve `"${input:ntfy_token}"` before it launches the server, as VS Code does, so the server receives the real token. If your client doesn't support `${input:…}` references (Claude Desktop, Claude Code, Codex and others), set `NTFY_TOKEN` to the real token or to an environment-variable reference your client does support. Don't pass the placeholder through unchanged: the server's built-in startup prompt for an unresolved reference currently breaks the MCP stdio connection (see [#28](https://github.com/gitmotion/ntfy-me-mcp/issues/28)).
 >
 > Since `v1.4.0+`, the `PROTECTED_TOPIC` env has been removed. This handling is now auto-detected from the unresolved `NTFY_TOKEN` input reference instead.
 
@@ -766,9 +766,11 @@ Both tools return a short human-readable `content` text for the model and a mach
 | Tool | Success (`structuredContent`) |
 | --- | --- |
 | `ntfy_me` | `{ "success": true, "endpoint": "https://ntfy.sh/your-topic" }` |
-| `ntfy_me_fetch` | `{ "success": true, "messageCount": 1, "topics": { "your-topic": [ /* messages */ ] } }`<br/>When the topic has no cached messages in the requested window: `{ "success": true, "topic": "your-topic", "messages": [] }` |
+| `ntfy_me_fetch` | `{ "success": true, "messageCount": 1, "topics": { "your-topic": [ /* messages */ ] } }`<br/>When the server returns an empty response (no cached messages in the requested window): `{ "success": true, "topic": "your-topic", "messages": [] }`<br/>When the response contains no valid message records: `{ "success": true, "messageCount": 0, "topics": {} }` |
 
-On failure, both tools set `isError: true` and return `{ "success": false, "error": "<message>" }`. The error message is specific for an invalid `url` or `topic`, an authentication failure (HTTP 401/403), or a non-2xx status code (`... Status code: 500`). Anything else is reported generically (`Failed to send ntfy notification` / `Failed to fetch ntfy messages`), so raw input or server text is never echoed back to the model.
+**Invalid arguments** (a missing `title`, a malformed `topic`, an unknown `priority`, …) are rejected by the MCP SDK's schema validation before the tool runs. They come back with `isError: true` and a text-only `MCP error -32602: Input validation error: …` message that names the field and the expected format, with no `structuredContent`.
+
+**Failures inside the tool** set `isError: true` and return `{ "success": false, "error": "<message>" }`. The error message is specific for an invalid `url` or `topic`, an authentication failure (HTTP 401/403), or a non-2xx status code (`... Status code: 500`). Anything else is reported generically (`Failed to send ntfy notification` / `Failed to fetch ntfy messages`), so raw input or server text is never echoed back to the model.
 
 ## Security
 

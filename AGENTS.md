@@ -25,6 +25,9 @@ Configuration comes from env vars (`NTFY_TOPIC` required; `NTFY_URL` defaults to
 
 CI (`.github/workflows/build-and-test.yml`) runs `npm ci && npm run build && npm test` on Node 24 for every push and pull request. Run the same three before you finish.
 
+- Use `npm test`. Bare `npx vitest` starts watch mode and never exits in a non-interactive shell.
+- To exercise the built server end to end, never point it at the public `ntfy.sh` from scripts or tests. Run a local mock HTTP server (or a local ntfy container, `docker run -p 8080:80 binwiederhier/ntfy serve`) and set `NTFY_URL` to it, e.g. `NTFY_URL=http://127.0.0.1:8080 NTFY_TOPIC=test npx @modelcontextprotocol/inspector node build/index.js`.
+
 ## Architecture
 
 ```
@@ -47,7 +50,7 @@ tests/                     Vitest suites, one per source concern (see Testing)
 build/                     compiled output; COMMITTED to git (see below)
 ```
 
-**Request flow for `ntfy_me`:** the MCP SDK validates the arguments against `notifyToolInputSchema` → `handleNotifyTool` resolves url, topic and token (tool argument, then env default) → `validateNtfyUrl` / `validateNtfyTopic` → it builds headers (`Title`, `Priority`, `Tags`, `X-Markdown`, `X-Actions`, `Authorization`) → `POST` → it returns `content` plus `structuredContent`. On any error it returns `isError: true` with a message passed through `sanitizeErrorMessage`.
+**Request flow for `ntfy_me`:** the MCP SDK validates the arguments against `notifyToolInputSchema` → `handleNotifyTool` resolves url, topic and token (tool argument, then env default) → `validateNtfyUrl` / `validateNtfyTopic` → it builds headers (`Title`, `Priority`, `Tags`, `X-Markdown`, `X-Actions`, `Authorization`) → `POST` → it returns `content` plus `structuredContent`. Arguments that fail the schema never reach the handler: the SDK itself returns `isError: true` with an `MCP error -32602: Input validation error` text and no `structuredContent`. Errors raised inside the handler return `isError: true`, with `structuredContent: { success: false, error }` and a message passed through `sanitizeErrorMessage`.
 
 **Request flow for `ntfy_me_fetch`:** the same resolution and validation → `fetchMessages` (`since` defaults to `10m`) → it parses newline-delimited JSON, drops lines that fail `messageDataSchema`, and groups the messages by topic.
 
@@ -73,7 +76,7 @@ This is a stdio MCP server, so **anything written to stdout corrupts the protoco
 - Prefer schema-derived types (`z.infer<typeof schema>`) over hand-written interfaces when a Zod schema already defines the shape.
 - Keep the split: schemas in `src/schemas/`, ntfy-specific security checks in `validation.ts`, tool behavior in `toolHandlers.ts`, network and parsing for fetch in `messages.ts`, startup and registration in `index.ts`. Don't fold them back into one file.
 - Optional tool inputs treat `""` as "not provided" (agents often send empty strings). Follow the existing helpers in `ntfyTopic.schema.ts` and `ntfyPriority.schema.ts` when you add optional enum or string inputs.
-- Tools return both `content` (text for the model) and `structuredContent` (data), and set `isError: true` on failure.
+- Handlers return both `content` (text for the model) and `structuredContent` (data), and set `isError: true` on failure.
 
 ### `build/` is committed
 The compiled `build/` directory is checked in. When you change anything under `src/`, run `npm run build` and **commit the regenerated `build/` files in the same change**. A docs-only change should leave `build/` untouched. Check with `git status` after building.
