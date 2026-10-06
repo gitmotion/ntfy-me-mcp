@@ -24,6 +24,23 @@ export function createToolHandlers(config: ToolHandlerConfig = {}) {
     const getDefaultUrl = parsedConfig.getDefaultUrl ?? (() => "https://ntfy.sh");
     const getDefaultToken = parsedConfig.getDefaultToken ?? (() => undefined);
     const allowTopicOverride = parsedConfig.allowTopicOverride ?? false;
+    const allowUrlOverride = parsedConfig.allowUrlOverride ?? false;
+
+    function resolveUrl(url?: string): string {
+        if (url && allowUrlOverride) {
+            return url;
+        }
+
+        const defaultUrl = getDefaultUrl();
+        const withoutTrailingSlash = (value: string) => value.trim().replace(/\/+$/, "");
+        if (url?.trim() && withoutTrailingSlash(url) !== withoutTrailingSlash(defaultUrl)) {
+            logger.warn(
+                "Ignoring the per-call url: url overrides are disabled. Set NTFY_ALLOW_URL_OVERRIDE=true to allow them."
+            );
+        }
+
+        return defaultUrl;
+    }
 
     function resolveTopic(topic?: string): string {
         if (topic && allowTopicOverride) {
@@ -89,7 +106,7 @@ export function createToolHandlers(config: ToolHandlerConfig = {}) {
         actions,
     }: NotifyToolInput) {
         try {
-            const url = customUrl || getDefaultUrl();
+            const url = resolveUrl(customUrl);
             const topic = resolveTopic(customTopic);
 
             validateNtfyUrl(url, "url");
@@ -200,7 +217,7 @@ export function createToolHandlers(config: ToolHandlerConfig = {}) {
         tags,
     }: FetchToolInput) {
         try {
-            const url = customUrl || getDefaultUrl();
+            const url = resolveUrl(customUrl);
             const topic = resolveTopic(customTopic);
             const sinceSetting = since === null ? undefined : since || "10m";
 

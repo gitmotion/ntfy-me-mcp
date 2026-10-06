@@ -12,6 +12,18 @@ export function createToolHandlers(config = {}) {
     const getDefaultUrl = parsedConfig.getDefaultUrl ?? (() => "https://ntfy.sh");
     const getDefaultToken = parsedConfig.getDefaultToken ?? (() => undefined);
     const allowTopicOverride = parsedConfig.allowTopicOverride ?? false;
+    const allowUrlOverride = parsedConfig.allowUrlOverride ?? false;
+    function resolveUrl(url) {
+        if (url && allowUrlOverride) {
+            return url;
+        }
+        const defaultUrl = getDefaultUrl();
+        const withoutTrailingSlash = (value) => value.trim().replace(/\/+$/, "");
+        if (url?.trim() && withoutTrailingSlash(url) !== withoutTrailingSlash(defaultUrl)) {
+            logger.warn("Ignoring the per-call url: url overrides are disabled. Set NTFY_ALLOW_URL_OVERRIDE=true to allow them.");
+        }
+        return defaultUrl;
+    }
     function resolveTopic(topic) {
         if (topic && allowTopicOverride) {
             return validateNtfyTopic(topic, "topic");
@@ -47,7 +59,7 @@ export function createToolHandlers(config = {}) {
     const WITHHELD_TOKEN_HINT = "NTFY_TOKEN is only sent to the NTFY_URL server; pass the 'accessToken' parameter to authenticate with this server.";
     async function handleNotifyTool({ title, message, url: customUrl, topic: customTopic, accessToken, priority, tags, markdown, actions, }) {
         try {
-            const url = customUrl || getDefaultUrl();
+            const url = resolveUrl(customUrl);
             const topic = resolveTopic(customTopic);
             validateNtfyUrl(url, "url");
             const { token, withheldDefaultToken } = resolveToken(url, accessToken);
@@ -124,7 +136,7 @@ export function createToolHandlers(config = {}) {
     }
     async function handleFetchTool({ url: customUrl, topic: customTopic, accessToken, since, messageId, messageText, messageTitle, priorities, tags, }) {
         try {
-            const url = customUrl || getDefaultUrl();
+            const url = resolveUrl(customUrl);
             const topic = resolveTopic(customTopic);
             const sinceSetting = since === null ? undefined : since || "10m";
             validateNtfyUrl(url, "url");

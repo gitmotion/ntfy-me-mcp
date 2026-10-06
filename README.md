@@ -414,6 +414,7 @@ Create a `.env` file by copying the example: `cp .env.example .env` — see [`.e
 | `NTFY_URL` | No | `https://ntfy.sh` | ntfy server URL — change this for self-hosted instances<br/>(include port if needed, e.g. `https://your-server.com:8443`) |
 | `NTFY_TOKEN` | No | — | Access token for protected topics or private servers. Only ever sent to the `NTFY_URL` server |
 | `NTFY_ALLOW_TOPIC_OVERRIDE` | No | `false` | Set to `true` to let the agent choose a per-call `topic`. When off (the default), the `topic` parameter isn't offered to the agent and every notification and fetch uses `NTFY_TOPIC` |
+| `NTFY_ALLOW_URL_OVERRIDE` | No | `false` | Set to `true` to let the agent choose a per-call server `url`. When off (the default), the `url` parameter isn't offered and every request goes to `NTFY_URL`. Even when on, `NTFY_TOKEN` is only sent to `NTFY_URL` |
 
 ### Authentication
 
@@ -549,7 +550,7 @@ TypeScript typing.",
     </tr>
     <tr>
       <td valign="top"><code>url</code></td>
-      <td valign="top">Custom ntfy server URL. <code>NTFY_TOKEN</code> is only sent to the <code>NTFY_URL</code> server; pass <code>accessToken</code> for another server</td>
+      <td valign="top">Custom ntfy server URL. <b>Only offered when <code>NTFY_ALLOW_URL_OVERRIDE=true</code></b>. <code>NTFY_TOKEN</code> is only sent to the <code>NTFY_URL</code> server; pass <code>accessToken</code> for another server</td>
       <td valign="top">No</td>
       <td valign="top"><i>Default: <code>NTFY_URL</code></i></td>
     </tr>
@@ -701,7 +702,7 @@ AI assistants understand various ways to request message fetching:
   <tbody>
     <tr>
       <td valign="top"><code>url</code></td>
-      <td valign="top">Custom ntfy server URL. <code>NTFY_TOKEN</code> is only sent to the <code>NTFY_URL</code> server; pass <code>accessToken</code> for another server</td>
+      <td valign="top">Custom ntfy server URL. <b>Only offered when <code>NTFY_ALLOW_URL_OVERRIDE=true</code></b>. <code>NTFY_TOKEN</code> is only sent to the <code>NTFY_URL</code> server; pass <code>accessToken</code> for another server</td>
       <td valign="top">No</td>
       <td valign="top"><i>Default: <code>NTFY_URL</code></i></td>
     </tr>
@@ -781,7 +782,9 @@ ntfy-me-mcp treats every tool argument as untrusted, because it comes from a mod
 - **Topics:** letters, numbers, `_` and `-` only, up to 128 characters.
 - **Error messages:** only a fixed set of known-safe messages reaches the model. Everything else is replaced with a generic message, so attacker-controlled text is never reflected back (see [#13](https://github.com/gitmotion/ntfy-me-mcp/issues/13)).
 - **Fetched messages are untrusted input.** `ntfy_me_fetch` hands message content to the model, and anyone who knows a public topic's name can publish to it. On ntfy.sh, use a hard-to-guess topic name, or a protected topic with an access token.
-- **Destination control:** notifications and fetches always use `NTFY_TOPIC`. The agent can't pick another topic unless you set `NTFY_ALLOW_TOPIC_OVERRIDE=true` (see [#21](https://github.com/gitmotion/ntfy-me-mcp/issues/21)). The agent can still pass a per-call `url`, but your `NTFY_TOKEN` is only ever sent to the `NTFY_URL` server. Any other server gets no credentials unless the call supplies its own `accessToken`.
+- **Destination control:** by default, every notification and fetch goes to `NTFY_TOPIC` on `NTFY_URL`. The agent is never offered the `topic` or `url` parameters, so a prompt-injected call can't send your messages, or your topic name (which is effectively a password on public ntfy.sh), anywhere else (see [#21](https://github.com/gitmotion/ntfy-me-mcp/issues/21)).
+  - `NTFY_ALLOW_TOPIC_OVERRIDE=true` and `NTFY_ALLOW_URL_OVERRIDE=true` opt back in, independently.
+  - Even with url overrides on, `NTFY_TOKEN` is only ever sent to the `NTFY_URL` server. Other servers get no credentials unless the call supplies its own `accessToken`.
 - **Tokens:** prefer your client's secret input (e.g. VS Code `${input:…}`) or an environment variable over hardcoding `NTFY_TOKEN` in a config file you share.
 
 Found a vulnerability? Please report it privately through [GitHub security advisories](https://github.com/gitmotion/ntfy-me-mcp/security/advisories/new) rather than in a public issue.

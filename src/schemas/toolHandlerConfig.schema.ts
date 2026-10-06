@@ -20,6 +20,7 @@ export const toolHandlerConfigSchema = z.object({
         })
         .optional(),
     allowTopicOverride: z.boolean().optional(),
+    allowUrlOverride: z.boolean().optional(),
 });
 
 export type ToolHandlerConfig = z.infer<typeof toolHandlerConfigSchema>;

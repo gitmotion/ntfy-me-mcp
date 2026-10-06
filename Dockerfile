@@ -35,3 +35,4 @@ CMD ["node", "build/index.js"]
 # - NTFY_URL: Your ntfy server URL (default: https://ntfy.sh)
 # - NTFY_TOKEN: Authentication token for protected topics (only sent to NTFY_URL)
 # - NTFY_ALLOW_TOPIC_OVERRIDE: "true" to let the agent choose a per-call topic (default: locked to NTFY_TOPIC)
+# - NTFY_ALLOW_URL_OVERRIDE: "true" to let the agent choose a per-call server url (default: locked to NTFY_URL)

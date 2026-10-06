@@ -45,22 +45,25 @@ export const fetchToolInputSchema = z.object({
 });
 
 // `topic` is optional because the tool is registered without it when topic
-// overrides are disabled (see createFetchToolInputSchema).
+// overrides are disabled (and `url` is already optional) (see createFetchToolInputSchema).
 export type FetchToolInput = Omit<z.infer<typeof fetchToolInputSchema>, "topic"> & {
     topic?: string;
 };
 
 /**
- * Builds the ntfy_me_fetch input schema for the server's topic policy.
- * Unless topic overrides are allowed, `topic` is left out so fetches always
- * read NTFY_TOPIC.
+ * Builds the ntfy_me_fetch input schema for the server's destination policy.
+ * Unless overrides are allowed, `topic` and/or `url` are left out entirely so
+ * the agent can't see or send them: requests go to NTFY_TOPIC on NTFY_URL.
  */
 export function createFetchToolInputSchema({
     allowTopicOverride,
+    allowUrlOverride,
 }: {
     allowTopicOverride: boolean;
+    allowUrlOverride: boolean;
 }) {
-    return allowTopicOverride
-        ? fetchToolInputSchema
-        : fetchToolInputSchema.omit({ topic: true });
+    return fetchToolInputSchema.omit({
+        ...(allowTopicOverride ? {} : { topic: true as const }),
+        ...(allowUrlOverride ? {} : { url: true as const }),
+    });
 }

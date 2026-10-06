@@ -19,4 +19,5 @@ export const toolHandlerConfigSchema = z.object({
     })
         .optional(),
     allowTopicOverride: z.boolean().optional(),
+    allowUrlOverride: z.boolean().optional(),
 });

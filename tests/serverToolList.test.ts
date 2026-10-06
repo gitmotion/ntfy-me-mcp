@@ -52,18 +52,31 @@ async function listToolProperties(extraEnv: Record<string, string>) {
     }
 }
 
-describe("server tool list and NTFY_ALLOW_TOPIC_OVERRIDE (#21)", () => {
-    it("doesn't offer a topic parameter by default", async () => {
+describe("server tool list and destination overrides (#21)", () => {
+    it("offers neither topic nor url by default", async () => {
         const tools = await listToolProperties({});
 
-        expect(tools.ntfy_me).not.toContain("topic");
-        expect(tools.ntfy_me_fetch).not.toContain("topic");
+        for (const name of ["ntfy_me", "ntfy_me_fetch"]) {
+            expect(tools[name]).not.toContain("topic");
+            expect(tools[name]).not.toContain("url");
+        }
     });
 
-    it("offers a topic parameter when NTFY_ALLOW_TOPIC_OVERRIDE=true", async () => {
+    it("offers topic only when NTFY_ALLOW_TOPIC_OVERRIDE=true", async () => {
         const tools = await listToolProperties({ NTFY_ALLOW_TOPIC_OVERRIDE: "true" });
 
-        expect(tools.ntfy_me).toContain("topic");
-        expect(tools.ntfy_me_fetch).toContain("topic");
+        for (const name of ["ntfy_me", "ntfy_me_fetch"]) {
+            expect(tools[name]).toContain("topic");
+            expect(tools[name]).not.toContain("url");
+        }
+    });
+
+    it("offers url only when NTFY_ALLOW_URL_OVERRIDE=true", async () => {
+        const tools = await listToolProperties({ NTFY_ALLOW_URL_OVERRIDE: "true" });
+
+        for (const name of ["ntfy_me", "ntfy_me_fetch"]) {
+            expect(tools[name]).toContain("url");
+            expect(tools[name]).not.toContain("topic");
+        }
     });
 });

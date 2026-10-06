@@ -33,11 +33,16 @@ const RAW_NTFY_TOKEN = process.env.NTFY_TOKEN?.trim() ?? "";
 const HAS_UNRESOLVED_TOKEN_INPUT = isUnresolvedInputReference(RAW_NTFY_TOKEN);
 let NTFY_TOKEN = HAS_UNRESOLVED_TOKEN_INPUT ? "" : RAW_NTFY_TOKEN;
 const NTFY_ALLOW_TOPIC_OVERRIDE = parseBooleanEnv(process.env.NTFY_ALLOW_TOPIC_OVERRIDE);
+const NTFY_ALLOW_URL_OVERRIDE = parseBooleanEnv(process.env.NTFY_ALLOW_URL_OVERRIDE);
+const DESTINATION_POLICY = {
+    allowTopicOverride: NTFY_ALLOW_TOPIC_OVERRIDE,
+    allowUrlOverride: NTFY_ALLOW_URL_OVERRIDE,
+};
 const { handleNotifyTool, handleFetchTool } = createToolHandlers({
     getDefaultTopic: () => NTFY_TOPIC,
     getDefaultUrl: () => NTFY_URL,
     getDefaultToken: () => NTFY_TOKEN,
-    allowTopicOverride: NTFY_ALLOW_TOPIC_OVERRIDE,
+    ...DESTINATION_POLICY,
 });
 async function initializeServer() {
     if (!NTFY_TOPIC) {
@@ -78,6 +83,9 @@ async function initializeServer() {
     logger.info(NTFY_ALLOW_TOPIC_OVERRIDE
         ? "Topic overrides enabled (NTFY_ALLOW_TOPIC_OVERRIDE): tools accept a per-call topic."
         : `Topic locked to NTFY_TOPIC (${NTFY_TOPIC}). Set NTFY_ALLOW_TOPIC_OVERRIDE=true to let tools choose a topic.`);
+    logger.info(NTFY_ALLOW_URL_OVERRIDE
+        ? "Server URL overrides enabled (NTFY_ALLOW_URL_OVERRIDE): tools accept a per-call url; NTFY_TOKEN is still only sent to NTFY_URL."
+        : `Server locked to NTFY_URL (${NTFY_URL}). Set NTFY_ALLOW_URL_OVERRIDE=true to let tools choose a server.`);
     // Create the MCP server
     const server = new McpServer({
         name: "ntfy-me-mcp",
@@ -86,16 +94,12 @@ async function initializeServer() {
     server.registerTool("ntfy_me", {
         title: "Send ntfy notification",
         description: "Send a notification to the user via ntfy. Use this tool when the user asks to 'send a notification', 'notify me', 'send me an alert', 'message me', 'ping me', or any similar request. This tool is perfect for sending status updates, alerts, reminders, or notifications about completed tasks.",
-        inputSchema: createNotifyToolInputSchema({
-            allowTopicOverride: NTFY_ALLOW_TOPIC_OVERRIDE,
-        }),
+        inputSchema: createNotifyToolInputSchema(DESTINATION_POLICY),
     }, handleNotifyTool);
     server.registerTool("ntfy_me_fetch", {
         title: "Fetch ntfy messages",
         description: "Fetch cached messages from an ntfy server topic. Use this tool when the user asks to 'show notifications', 'get my messages', 'show my alerts', 'find notifications', 'search notifications', or any similar request. Great for finding recent notifications, checking message history, or searching for specific notifications by content, title, tags, or priority.",
-        inputSchema: createFetchToolInputSchema({
-            allowTopicOverride: NTFY_ALLOW_TOPIC_OVERRIDE,
-        }),
+        inputSchema: createFetchToolInputSchema(DESTINATION_POLICY),
     }, handleFetchTool);
     // Start the server with stdio transport
     const transport = new StdioServerTransport();

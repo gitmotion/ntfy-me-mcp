@@ -94,7 +94,7 @@ describe("createToolHandlers", () => {
         });
 
         it("returns a structured validation error without calling fetch", async () => {
-            const { handleNotifyTool } = buildHandlers();
+            const { handleNotifyTool } = buildHandlers({ allowUrlOverride: true });
 
             const result = await handleNotifyTool({
                 title: "Broken",
@@ -289,11 +289,97 @@ describe("createToolHandlers", () => {
         });
     });
 
+    describe("url override (#21)", () => {
+        it("ignores a per-call url and uses NTFY_URL when url overrides are not allowed (default)", async () => {
+            const warnSpy = vi.spyOn(Logger.getInstance(), "warn").mockImplementation(() => {});
+            mockFetch.mockResolvedValueOnce(createResponse());
+
+            const { handleNotifyTool } = buildHandlers();
+            const result = await handleNotifyTool({
+                title: "Locked",
+                message: "Stays on the configured server",
+                url: "https://evil.example.com",
+                topic: undefined,
+                priority: "default",
+            });
+
+            const [endpoint, options] = mockFetch.mock.calls[0];
+            expect(endpoint).toBe("https://ntfy.sh/default_topic");
+            expect(options?.headers).toMatchObject({ Authorization: "Bearer env-token" });
+            expect(result.structuredContent).toEqual({
+                success: true,
+                endpoint: "https://ntfy.sh/default_topic",
+            });
+            expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining("Ignoring the per-call url"));
+            expect(warnSpy.mock.calls.flat().join(" ")).not.toContain("evil.example.com");
+            warnSpy.mockRestore();
+        });
+
+        it("ignores even an invalid per-call url when url overrides are not allowed", async () => {
+            mockFetch.mockResolvedValueOnce(createResponse());
+
+            const { handleNotifyTool } = buildHandlers();
+            const result = await handleNotifyTool({
+                title: "Locked",
+                message: "m",
+                url: "ftp://ntfy.sh",
+                topic: undefined,
+                priority: "default",
+            });
+
+            expect(result.isError).toBeUndefined();
+            expect(mockFetch.mock.calls[0][0]).toBe("https://ntfy.sh/default_topic");
+        });
+
+        it("ignores a per-call fetch url when url overrides are not allowed", async () => {
+            mockFetchMessages.mockResolvedValueOnce(null);
+
+            const { handleFetchTool } = buildHandlers();
+            await handleFetchTool({
+                url: "https://evil.example.com",
+                topic: undefined,
+                priorities: undefined,
+            });
+
+            expect(mockFetchMessages).toHaveBeenCalledWith(
+                expect.objectContaining({ url: "https://ntfy.sh", token: "env-token" })
+            );
+        });
+
+        it("uses a per-call url when allowUrlOverride is true", async () => {
+            mockFetch.mockResolvedValueOnce(createResponse());
+
+            const { handleNotifyTool } = buildHandlers({ allowUrlOverride: true });
+            await handleNotifyTool({
+                title: "Override",
+                message: "m",
+                url: "https://ntfy.example.com",
+                topic: undefined,
+                priority: "default",
+            });
+
+            expect(mockFetch.mock.calls[0][0]).toBe("https://ntfy.example.com/default_topic");
+        });
+
+        it("doesn't warn for a blank or matching per-call url", async () => {
+            const warnSpy = vi.spyOn(Logger.getInstance(), "warn").mockImplementation(() => {});
+            mockFetch.mockResolvedValue(createResponse());
+
+            const { handleNotifyTool } = buildHandlers();
+            for (const url of ["", "  ", "https://ntfy.sh", "https://ntfy.sh/"]) {
+                await handleNotifyTool({ title: "T", message: "m", url, topic: undefined, priority: "default" });
+            }
+
+            expect(warnSpy).not.toHaveBeenCalled();
+            warnSpy.mockRestore();
+        });
+    });
+
     describe("NTFY_TOKEN origin guard", () => {
         it("does not send NTFY_TOKEN to a per-call url on a different origin", async () => {
             mockFetch.mockResolvedValueOnce(createResponse());
 
-            const { handleNotifyTool } = buildHandlers();
+            const { handleNotifyTool } = buildHandlers({ allowUrlOverride: true });
             await handleNotifyTool({
                 title: "Elsewhere",
                 message: "Other server",
@@ -310,7 +396,7 @@ describe("createToolHandlers", () => {
         it("sends NTFY_TOKEN when the per-call url has the same origin as NTFY_URL", async () => {
             mockFetch.mockResolvedValueOnce(createResponse());
 
-            const { handleNotifyTool } = buildHandlers();
+            const { handleNotifyTool } = buildHandlers({ allowUrlOverride: true });
             await handleNotifyTool({
                 title: "Same server",
                 message: "Trailing slash and explicit port",
@@ -326,7 +412,7 @@ describe("createToolHandlers", () => {
         it("sends an explicit accessToken to any origin", async () => {
             mockFetch.mockResolvedValueOnce(createResponse());
 
-            const { handleNotifyTool } = buildHandlers();
+            const { handleNotifyTool } = buildHandlers({ allowUrlOverride: true });
             await handleNotifyTool({
                 title: "Elsewhere",
                 message: "Other server, own token",
@@ -343,7 +429,7 @@ describe("createToolHandlers", () => {
         it("does not pass NTFY_TOKEN to fetchMessages for a different origin", async () => {
             mockFetchMessages.mockResolvedValueOnce(null);
 
-            const { handleFetchTool } = buildHandlers();
+            const { handleFetchTool } = buildHandlers({ allowUrlOverride: true });
             await handleFetchTool({
                 url: "https://evil.example.com",
                 topic: undefined,
@@ -358,7 +444,7 @@ describe("createToolHandlers", () => {
         it("prefers an explicit accessToken over NTFY_TOKEN on the configured server", async () => {
             mockFetch.mockResolvedValueOnce(createResponse());
 
-            const { handleNotifyTool } = buildHandlers();
+            const { handleNotifyTool } = buildHandlers({ allowUrlOverride: true });
             await handleNotifyTool({
                 title: "Own token",
                 message: "Same server, explicit token",
@@ -375,6 +461,7 @@ describe("createToolHandlers", () => {
             mockFetch.mockResolvedValue(createResponse());
 
             const { handleNotifyTool } = buildHandlers({
+                allowUrlOverride: true,
                 getDefaultUrl: () => "https://ntfy.example.com:8443/ntfy",
             });
             await handleNotifyTool({
@@ -402,7 +489,7 @@ describe("createToolHandlers", () => {
             const warnSpy = vi.spyOn(Logger.getInstance(), "warn").mockImplementation(() => {});
             mockFetch.mockResolvedValueOnce(createResponse());
 
-            const { handleNotifyTool } = buildHandlers();
+            const { handleNotifyTool } = buildHandlers({ allowUrlOverride: true });
             await handleNotifyTool({
                 title: "Elsewhere",
                 message: "Other server",
@@ -419,7 +506,7 @@ describe("createToolHandlers", () => {
         it("explains a 401 from another server instead of telling the agent to set NTFY_TOKEN", async () => {
             mockFetch.mockResolvedValueOnce(createResponse({ ok: false, status: 401 }));
 
-            const { handleNotifyTool } = buildHandlers();
+            const { handleNotifyTool } = buildHandlers({ allowUrlOverride: true });
             const result = await handleNotifyTool({
                 title: "Elsewhere",
                 message: "Other server",
@@ -442,7 +529,7 @@ describe("createToolHandlers", () => {
                 )
             );
 
-            const { handleFetchTool } = buildHandlers();
+            const { handleFetchTool } = buildHandlers({ allowUrlOverride: true });
             const result = await handleFetchTool({
                 url: "https://other.example.com",
                 topic: undefined,
@@ -459,7 +546,7 @@ describe("createToolHandlers", () => {
         it("passes NTFY_TOKEN to fetchMessages for the configured server", async () => {
             mockFetchMessages.mockResolvedValueOnce(null);
 
-            const { handleFetchTool } = buildHandlers();
+            const { handleFetchTool } = buildHandlers({ allowUrlOverride: true });
             await handleFetchTool({ topic: undefined, priorities: undefined });
 
             expect(mockFetchMessages).toHaveBeenCalledWith(
@@ -571,7 +658,7 @@ describe("createToolHandlers", () => {
         });
 
         it("returns a structured validation error before calling fetchMessages", async () => {
-            const { handleFetchTool } = buildHandlers();
+            const { handleFetchTool } = buildHandlers({ allowUrlOverride: true });
 
             const result = await handleFetchTool({
                 url: "javascript:alert(1)",

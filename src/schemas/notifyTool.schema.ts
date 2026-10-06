@@ -36,22 +36,25 @@ export const notifyToolInputSchema = z.object({
 });
 
 // `topic` is optional because the tool is registered without it when topic
-// overrides are disabled (see createNotifyToolInputSchema).
+// overrides are disabled (and `url` is already optional) (see createNotifyToolInputSchema).
 export type NotifyToolInput = Omit<z.infer<typeof notifyToolInputSchema>, "topic"> & {
     topic?: string;
 };
 
 /**
- * Builds the ntfy_me input schema for the server's topic policy.
- * Unless topic overrides are allowed, `topic` is left out entirely so the
- * agent can't see or send it and every notification goes to NTFY_TOPIC.
+ * Builds the ntfy_me input schema for the server's destination policy.
+ * Unless overrides are allowed, `topic` and/or `url` are left out entirely so
+ * the agent can't see or send them: requests go to NTFY_TOPIC on NTFY_URL.
  */
 export function createNotifyToolInputSchema({
     allowTopicOverride,
+    allowUrlOverride,
 }: {
     allowTopicOverride: boolean;
+    allowUrlOverride: boolean;
 }) {
-    return allowTopicOverride
-        ? notifyToolInputSchema
-        : notifyToolInputSchema.omit({ topic: true });
+    return notifyToolInputSchema.omit({
+        ...(allowTopicOverride ? {} : { topic: true as const }),
+        ...(allowUrlOverride ? {} : { url: true as const }),
+    });
 }

@@ -24,6 +24,14 @@ describe("toolHandlerConfigSchema", () => {
         ).toBe(true);
     });
 
+    it("accepts an allowUrlOverride flag", () => {
+        expect(toolHandlerConfigSchema.parse({ allowUrlOverride: true }).allowUrlOverride).toBe(true);
+    });
+
+    it("rejects a non-boolean allowUrlOverride", () => {
+        expect(() => toolHandlerConfigSchema.parse({ allowUrlOverride: 1 })).toThrow();
+    });
+
     it("rejects a non-boolean allowTopicOverride", () => {
         expect(() =>
             toolHandlerConfigSchema.parse({ allowTopicOverride: "true" })
