@@ -17,7 +17,15 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const packagePath = join(__dirname, "..", "package.json");
 const packageJson = JSON.parse(fs.readFileSync(packagePath, "utf8"));
-dotenv.config({ quiet: true });
+// Explicit options take precedence over dotenv's DOTENV_* / DOTENV_CONFIG_*
+// env vars: never print (stdout is the MCP JSON-RPC channel), never let a
+// .env override the client's config, and only read ./.env (dotenv 17 behavior).
+dotenv.config({
+    quiet: true,
+    debug: false,
+    override: false,
+    path: join(process.cwd(), ".env"),
+});
 const NTFY_TOPIC = process.env.NTFY_TOPIC;
 const NTFY_URL = process.env.NTFY_URL || "https://ntfy.sh";
 const RAW_NTFY_TOKEN = process.env.NTFY_TOKEN?.trim() ?? "";
