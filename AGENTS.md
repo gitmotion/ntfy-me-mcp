@@ -1,6 +1,8 @@
 # AGENTS.md
 
-Guidance for AI coding agents (Codex, Claude Code, Copilot, Cursor, …) working in this repository. Human contributors: see [CONTRIBUTING.md](CONTRIBUTING.md). End-user docs: see [README.md](README.md).
+Guidance for AI coding agents (Codex, Claude Code, GitHub Copilot, Cursor, …) working in this repository. Human contributors: see [CONTRIBUTING.md](CONTRIBUTING.md). End-user docs: see [README.md](README.md).
+
+**This is the single source of truth.** `CLAUDE.md` and `.github/copilot-instructions.md` are symlinks to this file, so Claude Code and Copilot read exactly this text. Edit `AGENTS.md` only. Don't replace the symlinks with copies.
 
 ## What this is
 
@@ -26,7 +28,7 @@ Configuration comes from env vars (`NTFY_TOPIC` required; `NTFY_URL` defaults to
 CI (`.github/workflows/build-and-test.yml`) runs `npm ci && npm run build && npm test` on Node 24 for every push and pull request. Run the same three before you finish.
 
 - Use `npm test`. Bare `npx vitest` starts watch mode and never exits in a non-interactive shell.
-- To exercise the built server end to end, never point it at the public `ntfy.sh` from scripts or tests. Run a local mock HTTP server, or a local ntfy container (`docker run --rm -p 8080:80 binwiederhier/ntfy serve`), and pass its URL to the server explicitly, e.g. `npx @modelcontextprotocol/inspector --cli node build/index.js -e NTFY_URL=http://127.0.0.1:8080 -e NTFY_TOPIC=test --method tools/list`. The Inspector does **not** forward your shell environment to the server, so `NTFY_URL=… npx @modelcontextprotocol/inspector …` silently falls back to a `.env` in the working directory or to `https://ntfy.sh`. Always use `-e`.
+- To exercise the built server end to end, never point it at the public `ntfy.sh` from scripts or tests. Run a local mock HTTP server, or a local ntfy container (`docker run --rm -p 8080:80 binwiederhier/ntfy serve`), and pass its URL to the server explicitly, e.g. `npx @modelcontextprotocol/inspector --cli node build/index.js -e NTFY_URL=http://127.0.0.1:8080 -e NTFY_TOPIC=test --method tools/list`. The Inspector (v2, the current `npx` default) does **not** forward your shell environment to the server, so variables set in front of the command are ignored. The server then either exits because `NTFY_TOPIC` is missing, or silently uses a `.env` in the working directory, whose `NTFY_URL` may be, or default to, `https://ntfy.sh`. Always use `-e`.
 
 ## Architecture
 
@@ -100,6 +102,17 @@ When you change a tool parameter, a default, an env var or an error message, upd
 - `.env.example` for env vars
 - `smithery.yaml` if startup configuration changes
 - this file, if the architecture or a rule changes
+
+## Review checklist
+
+When you review a change (including as Copilot code review), check:
+- [ ] Nothing new writes to stdout or reads stdin. Logging goes through `Logger`.
+- [ ] New user-facing errors use a fixed, allow-listed prefix in `sanitizeErrorMessage`, and no raw input or server text reaches tool output.
+- [ ] URL and topic validation is still applied to every value that reaches a request.
+- [ ] Tests were added or updated in the matching `tests/` file. `npm run build && npm test` pass.
+- [ ] `src/` changes come with the regenerated `build/` files.
+- [ ] README, `.env.example` and `smithery.yaml` were updated for any parameter, default, env var or error-message change.
+- [ ] The PR targets `dev` (or `testing`).
 
 ## Workflow
 

@@ -17,7 +17,7 @@ npm install
 npm run build
 ```
 
-AI coding agents: the repository's agent guide is [AGENTS.md](AGENTS.md), and [CLAUDE.md](CLAUDE.md) imports it for Claude Code.
+AI coding agents: the repository's agent guide is [AGENTS.md](AGENTS.md). `CLAUDE.md` (Claude Code) and `.github/copilot-instructions.md` (GitHub Copilot) are **symlinks** to it, so update `AGENTS.md` only. On Windows, clone with symlinks enabled (`git config --global core.symlinks true` plus Developer Mode), or those two files will check out as plain text containing the link path.
 
 ## The `build/` directory is committed
 
