@@ -6,6 +6,16 @@ import { fetchMessages } from "./messages.js";
 import { processActions } from "./actions.js";
 import { isSameOrigin, sanitizeErrorMessage, validateNtfyTopic, validateNtfyUrl, } from "./validation.js";
 const logger = Logger.getInstance();
+// Normalizes a URL for the "is this the configured server?" warning check
+// (case of scheme/host, default ports, trailing slashes). Never used for routing.
+function normalizeUrlForComparison(value) {
+    try {
+        return new URL(value.trim()).href.replace(/\/+$/, "");
+    }
+    catch {
+        return value.trim().replace(/\/+$/, "");
+    }
+}
 export function createToolHandlers(config = {}) {
     const parsedConfig = toolHandlerConfigSchema.parse(config);
     const getDefaultTopic = parsedConfig.getDefaultTopic ?? (() => undefined);
@@ -18,8 +28,7 @@ export function createToolHandlers(config = {}) {
             return url;
         }
         const defaultUrl = getDefaultUrl();
-        const withoutTrailingSlash = (value) => value.trim().replace(/\/+$/, "");
-        if (url?.trim() && withoutTrailingSlash(url) !== withoutTrailingSlash(defaultUrl)) {
+        if (url?.trim() && normalizeUrlForComparison(url) !== normalizeUrlForComparison(defaultUrl)) {
             logger.warn("Ignoring the per-call url: url overrides are disabled. Set NTFY_ALLOW_URL_OVERRIDE=true to allow them.");
         }
         return defaultUrl;

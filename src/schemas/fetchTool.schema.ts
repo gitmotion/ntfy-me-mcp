@@ -54,6 +54,10 @@ export type FetchToolInput = Omit<z.infer<typeof fetchToolInputSchema>, "topic">
  * Builds the ntfy_me_fetch input schema for the server's destination policy.
  * Unless overrides are allowed, `topic` and/or `url` are left out entirely so
  * the agent can't see or send them: requests go to NTFY_TOPIC on NTFY_URL.
+ *
+ * Note: the static return type is the most restricted shape (neither key);
+ * which keys exist at runtime depends on the flags. Handlers take the input
+ * type with `topic`/`url` optional, so either shape is accepted.
  */
 export function createFetchToolInputSchema({
     allowTopicOverride,

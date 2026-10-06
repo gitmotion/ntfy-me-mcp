@@ -366,7 +366,7 @@ describe("createToolHandlers", () => {
             mockFetch.mockResolvedValue(createResponse());
 
             const { handleNotifyTool } = buildHandlers();
-            for (const url of ["", "  ", "https://ntfy.sh", "https://ntfy.sh/"]) {
+            for (const url of ["", "  ", "https://ntfy.sh", "https://ntfy.sh/", "HTTPS://NTFY.sh"]) {
                 await handleNotifyTool({ title: "T", message: "m", url, topic: undefined, priority: "default" });
             }
 
@@ -540,6 +540,40 @@ describe("createToolHandlers", () => {
                 success: false,
                 error:
                     "Authentication failed when fetching messages. NTFY_TOKEN is only sent to the NTFY_URL server; pass the 'accessToken' parameter to authenticate with this server.",
+            });
+        });
+
+        it("keeps the original fetch auth error when the configured token was sent", async () => {
+            mockFetchMessages.mockRejectedValueOnce(
+                new Error(
+                    "Authentication failed when fetching messages. This ntfy topic requires an access token."
+                )
+            );
+
+            const { handleFetchTool } = buildHandlers({ allowUrlOverride: true });
+            const result = await handleFetchTool({ topic: undefined, priorities: undefined });
+
+            expect(result.structuredContent).toEqual({
+                success: false,
+                error: "Authentication failed when fetching messages. This ntfy topic requires an access token.",
+            });
+        });
+
+        it("doesn't relabel a non-auth fetch error from another server as an auth problem", async () => {
+            mockFetchMessages.mockRejectedValueOnce(
+                new Error("Failed to fetch ntfy messages. Status code: 500")
+            );
+
+            const { handleFetchTool } = buildHandlers({ allowUrlOverride: true });
+            const result = await handleFetchTool({
+                url: "https://other.example.com",
+                topic: undefined,
+                priorities: undefined,
+            });
+
+            expect(result.structuredContent).toEqual({
+                success: false,
+                error: "Failed to fetch ntfy messages. Status code: 500",
             });
         });
 

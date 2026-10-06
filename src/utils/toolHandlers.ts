@@ -18,6 +18,16 @@ import {
 
 const logger = Logger.getInstance();
 
+// Normalizes a URL for the "is this the configured server?" warning check
+// (case of scheme/host, default ports, trailing slashes). Never used for routing.
+function normalizeUrlForComparison(value: string): string {
+    try {
+        return new URL(value.trim()).href.replace(/\/+$/, "");
+    } catch {
+        return value.trim().replace(/\/+$/, "");
+    }
+}
+
 export function createToolHandlers(config: ToolHandlerConfig = {}) {
     const parsedConfig = toolHandlerConfigSchema.parse(config);
     const getDefaultTopic = parsedConfig.getDefaultTopic ?? (() => undefined);
@@ -32,8 +42,7 @@ export function createToolHandlers(config: ToolHandlerConfig = {}) {
         }
 
         const defaultUrl = getDefaultUrl();
-        const withoutTrailingSlash = (value: string) => value.trim().replace(/\/+$/, "");
-        if (url?.trim() && withoutTrailingSlash(url) !== withoutTrailingSlash(defaultUrl)) {
+        if (url?.trim() && normalizeUrlForComparison(url) !== normalizeUrlForComparison(defaultUrl)) {
             logger.warn(
                 "Ignoring the per-call url: url overrides are disabled. Set NTFY_ALLOW_URL_OVERRIDE=true to allow them."
             );

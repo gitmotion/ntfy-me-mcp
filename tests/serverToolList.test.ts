@@ -1,4 +1,5 @@
 import { spawn } from "node:child_process";
+import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
@@ -9,10 +10,14 @@ const entry = join(dirname(fileURLToPath(import.meta.url)), "..", "build", "inde
 
 async function listToolProperties(extraEnv: Record<string, string>) {
     const child = spawn(process.execPath, [entry], {
+        // Run outside the repo so a contributor's local .env can't change the flags.
+        cwd: tmpdir(),
         env: {
             PATH: process.env.PATH,
             NTFY_TOPIC: "tool_list_probe",
             NTFY_URL: "http://127.0.0.1:9",
+            NTFY_ALLOW_TOPIC_OVERRIDE: "false",
+            NTFY_ALLOW_URL_OVERRIDE: "false",
             ...extraEnv,
         },
         stdio: ["pipe", "pipe", "pipe"],
