@@ -474,7 +474,7 @@ This MCP server supports both authenticated and unauthenticated ntfy endpoints:
 
 > Your MCP client must resolve `"${input:ntfy_token}"` before it launches the server, as VS Code does, so the server receives the real token. If your client doesn't support `${input:…}` references (Claude Desktop, Claude Code, Codex and others), set `NTFY_TOKEN` to the real token or to an environment-variable reference your client does support. Don't pass the placeholder through unchanged: the server's built-in startup prompt for an unresolved reference currently breaks the MCP stdio connection (see [#28](https://github.com/gitmotion/ntfy-me-mcp/issues/28)).
 >
-> Since `v1.4.0+`, the `PROTECTED_TOPIC` env has been removed. This handling is now auto-detected from the unresolved `NTFY_TOKEN` input reference instead.
+> The `PROTECTED_TOPIC` env var was removed in `v1.4.0`. For protected topics, set `NTFY_TOKEN`, resolved by your client, instead.
 
 </details>
 
@@ -761,7 +761,7 @@ AI assistants understand various ways to request message fetching:
 
 ### Tool output
 
-Both tools return a short human-readable `content` text for the model and a machine-readable `structuredContent` object.
+Both tools return human-readable `content` for the model and a machine-readable `structuredContent` object. For `ntfy_me_fetch`, `content` also includes the fetched messages as JSON. That text comes from whoever published to the topic, so treat it as untrusted (see [Security](#security)).
 
 | Tool | Success (`structuredContent`) |
 | --- | --- |

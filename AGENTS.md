@@ -26,7 +26,7 @@ Configuration comes from env vars (`NTFY_TOPIC` required; `NTFY_URL` defaults to
 CI (`.github/workflows/build-and-test.yml`) runs `npm ci && npm run build && npm test` on Node 24 for every push and pull request. Run the same three before you finish.
 
 - Use `npm test`. Bare `npx vitest` starts watch mode and never exits in a non-interactive shell.
-- To exercise the built server end to end, never point it at the public `ntfy.sh` from scripts or tests. Run a local mock HTTP server (or a local ntfy container, `docker run -p 8080:80 binwiederhier/ntfy serve`) and set `NTFY_URL` to it, e.g. `NTFY_URL=http://127.0.0.1:8080 NTFY_TOPIC=test npx @modelcontextprotocol/inspector node build/index.js`.
+- To exercise the built server end to end, never point it at the public `ntfy.sh` from scripts or tests. Run a local mock HTTP server, or a local ntfy container (`docker run --rm -p 8080:80 binwiederhier/ntfy serve`), and pass its URL to the server explicitly, e.g. `npx @modelcontextprotocol/inspector --cli node build/index.js -e NTFY_URL=http://127.0.0.1:8080 -e NTFY_TOPIC=test --method tools/list`. The Inspector does **not** forward your shell environment to the server, so `NTFY_URL=… npx @modelcontextprotocol/inspector …` silently falls back to a `.env` in the working directory or to `https://ntfy.sh`. Always use `-e`.
 
 ## Architecture
 
