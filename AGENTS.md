@@ -68,8 +68,8 @@ This is a stdio MCP server, so **anything written to stdout corrupts the protoco
 `src/utils/validation.ts` and the request-building code in `toolHandlers.ts` / `messages.ts` are a security boundary. Tool arguments come from an LLM and may be prompt-injected.
 - ntfy URLs must stay restricted to `http:` / `https:` (`validateNtfyUrl`).
 - Topics must match `^[A-Za-z0-9_-]+$` and be at most 128 characters (`ntfyTopic.schema.ts`, `validateNtfyTopic`).
-- **Never reflect raw user or server text in tool output.** Errors go through `sanitizeErrorMessage`, which passes through only messages that start with an allow-listed prefix and replaces everything else with a generic fallback. When you add a new user-facing error, add its fixed prefix to the allow-list and keep any interpolated values safe (validated or constant).
-- Treat fetched ntfy messages as untrusted. They're parsed with `messageDataSchema.safeParse`, never trusted raw.
+- **Never reflect raw user or server text in error messages.** Errors go through `sanitizeErrorMessage`, which passes through only messages that start with an allow-listed prefix and replaces everything else with a generic fallback. When you add a new user-facing error, add its fixed prefix to the allow-list and keep any interpolated values safe (validated or constant).
+- Treat fetched ntfy messages as untrusted. They're parsed with `messageDataSchema.safeParse`, never trusted raw. Their content is returned to the model on purpose (that's the tool's job), so don't add anything that acts on it.
 - Never log tokens. `Authorization` headers are built in place and must not be logged.
 
 ### Code conventions
@@ -107,11 +107,11 @@ When you change a tool parameter, a default, an env var or an error message, upd
 
 When you review a change (including as Copilot code review), check:
 - [ ] Nothing new writes to stdout or reads stdin. Logging goes through `Logger`.
-- [ ] New user-facing errors use a fixed, allow-listed prefix in `sanitizeErrorMessage`, and no raw input or server text reaches tool output.
-- [ ] URL and topic validation is still applied to every value that reaches a request.
+- [ ] New user-facing errors use a fixed, allow-listed prefix in `sanitizeErrorMessage`, and no raw input or server text reaches an error message.
+- [ ] Server URL (`validateNtfyUrl`) and topic (`validateNtfyTopic`) validation still runs on every per-call and env value. Any new value placed in a URL or header is validated or encoded.
 - [ ] Tests were added or updated in the matching `tests/` file. `npm run build && npm test` pass.
 - [ ] `src/` changes come with the regenerated `build/` files.
-- [ ] README, `.env.example` and `smithery.yaml` were updated for any parameter, default, env var or error-message change.
+- [ ] The docs listed under *Docs that must move with the code* were updated.
 - [ ] The PR targets `dev` (or `testing`).
 
 ## Workflow
