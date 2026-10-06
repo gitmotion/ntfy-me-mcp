@@ -4,6 +4,7 @@ import { fetchToolInputSchema } from "../src/schemas/fetchTool.schema.js";
 import { notifyToolInputSchema } from "../src/schemas/notifyTool.schema.js";
 import { fetchMessages } from "../src/utils/messages.js";
 import { createToolHandlers } from "../src/utils/toolHandlers.js";
+import { Logger } from "../src/utils/logger.js";
 
 vi.mock("node-fetch", () => ({
     default: vi.fn(),
@@ -207,6 +208,36 @@ describe("createToolHandlers", () => {
             });
         });
 
+        it("warns on stderr, without the value, when it ignores a per-call topic", async () => {
+            const warnSpy = vi.spyOn(Logger.getInstance(), "warn").mockImplementation(() => {});
+            mockFetch.mockResolvedValueOnce(createResponse());
+
+            const { handleNotifyTool } = buildHandlers();
+            await handleNotifyTool({
+                title: "Locked",
+                message: "m",
+                topic: "agent_picked_topic",
+                priority: "default",
+            });
+
+            expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining("Ignoring the per-call topic"));
+            expect(warnSpy.mock.calls.flat().join(" ")).not.toContain("agent_picked_topic");
+            warnSpy.mockRestore();
+        });
+
+        it("doesn't warn for a blank or matching per-call topic", async () => {
+            const warnSpy = vi.spyOn(Logger.getInstance(), "warn").mockImplementation(() => {});
+            mockFetch.mockResolvedValue(createResponse());
+
+            const { handleNotifyTool } = buildHandlers();
+            for (const topic of ["   ", "default_topic"]) {
+                await handleNotifyTool({ title: "T", message: "m", topic, priority: "default" });
+            }
+
+            expect(warnSpy).not.toHaveBeenCalled();
+            warnSpy.mockRestore();
+        });
+
         it("uses a per-call topic when allowTopicOverride is true", async () => {
             mockFetch.mockResolvedValueOnce(createResponse());
 
@@ -322,6 +353,107 @@ describe("createToolHandlers", () => {
             expect(mockFetchMessages).toHaveBeenCalledWith(
                 expect.objectContaining({ url: "https://evil.example.com", token: undefined })
             );
+        });
+
+        it("prefers an explicit accessToken over NTFY_TOKEN on the configured server", async () => {
+            mockFetch.mockResolvedValueOnce(createResponse());
+
+            const { handleNotifyTool } = buildHandlers();
+            await handleNotifyTool({
+                title: "Own token",
+                message: "Same server, explicit token",
+                accessToken: "per-call-token",
+                topic: undefined,
+                priority: "default",
+            });
+
+            const [, options] = mockFetch.mock.calls[0];
+            expect(options?.headers).toMatchObject({ Authorization: "Bearer per-call-token" });
+        });
+
+        it("compares against a self-hosted NTFY_URL, not ntfy.sh", async () => {
+            mockFetch.mockResolvedValue(createResponse());
+
+            const { handleNotifyTool } = buildHandlers({
+                getDefaultUrl: () => "https://ntfy.example.com:8443/ntfy",
+            });
+            await handleNotifyTool({
+                title: "Self-hosted",
+                message: "Same origin, different path",
+                url: "https://ntfy.example.com:8443",
+                topic: undefined,
+                priority: "default",
+            });
+            await handleNotifyTool({
+                title: "Public",
+                message: "Different origin",
+                url: "https://ntfy.sh",
+                topic: undefined,
+                priority: "default",
+            });
+
+            expect(mockFetch.mock.calls[0][1]?.headers).toMatchObject({
+                Authorization: "Bearer env-token",
+            });
+            expect(mockFetch.mock.calls[1][1]?.headers).not.toHaveProperty("Authorization");
+        });
+
+        it("warns on stderr, without the token, when it withholds NTFY_TOKEN", async () => {
+            const warnSpy = vi.spyOn(Logger.getInstance(), "warn").mockImplementation(() => {});
+            mockFetch.mockResolvedValueOnce(createResponse());
+
+            const { handleNotifyTool } = buildHandlers();
+            await handleNotifyTool({
+                title: "Elsewhere",
+                message: "Other server",
+                url: "https://evil.example.com",
+                topic: undefined,
+                priority: "default",
+            });
+
+            expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining("Not sending NTFY_TOKEN"));
+            expect(warnSpy.mock.calls.flat().join(" ")).not.toContain("env-token");
+            warnSpy.mockRestore();
+        });
+
+        it("explains a 401 from another server instead of telling the agent to set NTFY_TOKEN", async () => {
+            mockFetch.mockResolvedValueOnce(createResponse({ ok: false, status: 401 }));
+
+            const { handleNotifyTool } = buildHandlers();
+            const result = await handleNotifyTool({
+                title: "Elsewhere",
+                message: "Other server",
+                url: "https://other.example.com",
+                topic: undefined,
+                priority: "default",
+            });
+
+            expect(result.structuredContent).toEqual({
+                success: false,
+                error:
+                    "Authentication failed when sending notification. NTFY_TOKEN is only sent to the NTFY_URL server; pass the 'accessToken' parameter to authenticate with this server.",
+            });
+        });
+
+        it("explains a fetch 401 from another server the same way", async () => {
+            mockFetchMessages.mockRejectedValueOnce(
+                new Error(
+                    "Authentication failed when fetching messages. This ntfy topic requires an access token."
+                )
+            );
+
+            const { handleFetchTool } = buildHandlers();
+            const result = await handleFetchTool({
+                url: "https://other.example.com",
+                topic: undefined,
+                priorities: undefined,
+            });
+
+            expect(result.structuredContent).toEqual({
+                success: false,
+                error:
+                    "Authentication failed when fetching messages. NTFY_TOKEN is only sent to the NTFY_URL server; pass the 'accessToken' parameter to authenticate with this server.",
+            });
         });
 
         it("passes NTFY_TOKEN to fetchMessages for the configured server", async () => {

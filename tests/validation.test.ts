@@ -293,6 +293,11 @@ describe("isSameOrigin", () => {
         expect(isSameOrigin("https://ntfy.sh.evil.example.com", "https://ntfy.sh")).toBe(false);
     });
 
+    it("never treats two opaque (non-http) origins as the same", () => {
+        expect(isSameOrigin("file:///a", "mailto:x@example.com")).toBe(false);
+        expect(isSameOrigin("javascript:alert(1)", "data:,x")).toBe(false);
+    });
+
     it("returns false when either value is not a valid URL", () => {
         expect(isSameOrigin("not a url", "https://ntfy.sh")).toBe(false);
         expect(isSameOrigin("https://ntfy.sh", "")).toBe(false);

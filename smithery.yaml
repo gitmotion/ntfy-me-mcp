@@ -33,7 +33,7 @@ startCommand:
         { NTFY_TOPIC: config.topic },
         config.url ? { NTFY_URL: config.url } : {},
         config.token ? { NTFY_TOKEN: config.token } : {},
-        config.allowTopicOverride ? { NTFY_ALLOW_TOPIC_OVERRIDE: 'true' } : {}
+        config.allowTopicOverride === true ? { NTFY_ALLOW_TOPIC_OVERRIDE: 'true' } : {}
       )
     })
   exampleConfig:

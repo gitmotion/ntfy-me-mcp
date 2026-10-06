@@ -31,7 +31,7 @@ export function createToolHandlers(config: ToolHandlerConfig = {}) {
         }
 
         const defaultTopic = getDefaultTopic();
-        if (topic && topic.trim() !== defaultTopic?.trim()) {
+        if (topic?.trim() && topic.trim() !== defaultTopic?.trim()) {
             logger.warn(
                 "Ignoring the per-call topic: topic overrides are disabled. Set NTFY_ALLOW_TOPIC_OVERRIDE=true to allow them."
             );
@@ -51,25 +51,31 @@ export function createToolHandlers(config: ToolHandlerConfig = {}) {
      * attached when the request goes to the same origin as NTFY_URL, so a
      * per-call url can't redirect the configured credential to another server.
      */
-    function resolveToken(url: string, accessToken?: string): string | undefined {
+    function resolveToken(
+        url: string,
+        accessToken?: string
+    ): { token?: string; withheldDefaultToken: boolean } {
         if (accessToken) {
-            return accessToken;
+            return { token: accessToken, withheldDefaultToken: false };
         }
 
         const defaultToken = getDefaultToken();
         if (!defaultToken) {
-            return undefined;
+            return { token: undefined, withheldDefaultToken: false };
         }
 
         if (isSameOrigin(url, getDefaultUrl())) {
-            return defaultToken;
+            return { token: defaultToken, withheldDefaultToken: false };
         }
 
         logger.warn(
             "Not sending NTFY_TOKEN: the request URL is not on the NTFY_URL server. Pass accessToken to authenticate with another server."
         );
-        return undefined;
+        return { token: undefined, withheldDefaultToken: true };
     }
+
+    const WITHHELD_TOKEN_HINT =
+        "NTFY_TOKEN is only sent to the NTFY_URL server; pass the 'accessToken' parameter to authenticate with this server.";
 
     async function handleNotifyTool({
         title,
@@ -87,7 +93,7 @@ export function createToolHandlers(config: ToolHandlerConfig = {}) {
             const topic = resolveTopic(customTopic);
 
             validateNtfyUrl(url, "url");
-            const token = resolveToken(url, accessToken);
+            const { token, withheldDefaultToken } = resolveToken(url, accessToken);
 
             const baseUrl = url.endsWith("/") ? url.slice(0, -1) : url;
             const endpoint = `${baseUrl}/${topic}`;
@@ -137,8 +143,10 @@ export function createToolHandlers(config: ToolHandlerConfig = {}) {
                 if (response.status === 401 || response.status === 403) {
                     throw new Error(
                         "Authentication failed when sending notification. " +
-                        "This ntfy topic requires an access token. Please provide a token using the 'accessToken' parameter " +
-                        "or set the NTFY_TOKEN environment variable."
+                        (withheldDefaultToken
+                            ? WITHHELD_TOKEN_HINT
+                            : "This ntfy topic requires an access token. Please provide a token using the 'accessToken' parameter " +
+                            "or set the NTFY_TOKEN environment variable.")
                     );
                 }
 
@@ -197,7 +205,7 @@ export function createToolHandlers(config: ToolHandlerConfig = {}) {
             const sinceSetting = since === null ? undefined : since || "10m";
 
             validateNtfyUrl(url, "url");
-            const token = resolveToken(url, accessToken);
+            const { token, withheldDefaultToken } = resolveToken(url, accessToken);
 
             const messageRecords = await fetchMessages({
                 url,
@@ -209,6 +217,15 @@ export function createToolHandlers(config: ToolHandlerConfig = {}) {
                 messageTitle,
                 priorities,
                 tags,
+            }).catch((error: unknown) => {
+                if (
+                    withheldDefaultToken &&
+                    error instanceof Error &&
+                    error.message.startsWith("Authentication failed when fetching messages.")
+                ) {
+                    throw new Error(`Authentication failed when fetching messages. ${WITHHELD_TOKEN_HINT}`);
+                }
+                throw error;
             });
 
             if (!messageRecords) {

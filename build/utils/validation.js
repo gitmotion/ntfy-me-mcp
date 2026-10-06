@@ -29,7 +29,9 @@ export function validateNtfyUrl(url, fieldName = "ntfyUrl") {
  */
 export function isSameOrigin(url, otherUrl) {
     try {
-        return new URL(url).origin === new URL(otherUrl).origin;
+        const origin = new URL(url).origin;
+        // Opaque origins (file:, data:, mailto:, …) all serialize to "null".
+        return origin !== "null" && origin === new URL(otherUrl).origin;
     }
     catch {
         return false;
