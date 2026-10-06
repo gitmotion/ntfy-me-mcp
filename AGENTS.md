@@ -13,7 +13,7 @@ Guidance for AI coding agents (Codex, Claude Code, GitHub Copilot, Cursor, …) 
 | `ntfy_me` | Publish a notification (title, message, priority, tags, markdown, view actions) | `POST {url}/{topic}` with headers |
 | `ntfy_me_fetch` | Poll cached messages, with optional filters | `GET {url}/{topic}/json?poll=1&since=…` with `X-*` filter headers |
 
-Configuration comes from env vars (`NTFY_TOPIC` required; `NTFY_URL` defaults to `https://ntfy.sh`; `NTFY_TOKEN` is optional), loaded with `dotenv` from a local `.env` when present.
+Configuration comes from env vars (`NTFY_TOPIC` required; `NTFY_URL` defaults to `https://ntfy.sh`; `NTFY_TOKEN` is optional; `NTFY_ALLOW_TOPIC_OVERRIDE` defaults to off), loaded with `dotenv` from a local `.env` when present.
 
 ## Commands
 
@@ -44,7 +44,8 @@ src/
   utils/
     toolHandlers.ts        createToolHandlers(): owns ntfy_me and ntfy_me_fetch behavior
     messages.ts            fetchMessages(): poll request, NDJSON parsing, schema-validated messages
-    validation.ts          security-sensitive checks: URL scheme, topic rules, error sanitization
+    validation.ts          security-sensitive checks: URL scheme, topic rules, same-origin check, error sanitization
+    env.ts                 parseBooleanEnv() for opt-in env flags
     actions.ts             auto-detect URLs in a message → up to 3 ntfy "view" actions
     markdown.ts            markdown detection (regex fast path, markdown-it fallback)
     logger.ts              Logger singleton; every level writes to stderr
@@ -52,7 +53,7 @@ tests/                     Vitest suites, one per source concern (see Testing)
 build/                     compiled output; COMMITTED to git (see below)
 ```
 
-**Request flow for `ntfy_me`:** the MCP SDK validates the arguments against `notifyToolInputSchema` → `handleNotifyTool` resolves url, topic and token (tool argument, then env default) → `validateNtfyUrl` / `validateNtfyTopic` → it builds headers (`Title`, `Priority`, `Tags`, `X-Markdown`, `X-Actions`, `Authorization`) → `POST` → it returns `content` plus `structuredContent`. Arguments that fail the schema never reach the handler: the SDK itself returns `isError: true` with an `MCP error -32602: Input validation error` text and no `structuredContent`. Errors raised inside the handler return `isError: true`, with `structuredContent: { success: false, error }` and a message passed through `sanitizeErrorMessage`.
+**Request flow for `ntfy_me`:** the MCP SDK validates the arguments against `notifyToolInputSchema` → `handleNotifyTool` resolves the url (tool argument, then `NTFY_URL`), the topic (always `NTFY_TOPIC` unless `allowTopicOverride`) and the token (`accessToken`, else `NTFY_TOKEN` only if the url has `NTFY_URL`'s origin) → `validateNtfyUrl` / `validateNtfyTopic` → it builds headers (`Title`, `Priority`, `Tags`, `X-Markdown`, `X-Actions`, `Authorization`) → `POST` → it returns `content` plus `structuredContent`. Arguments that fail the schema never reach the handler: the SDK itself returns `isError: true` with an `MCP error -32602: Input validation error` text and no `structuredContent`. Errors raised inside the handler return `isError: true`, with `structuredContent: { success: false, error }` and a message passed through `sanitizeErrorMessage`.
 
 **Request flow for `ntfy_me_fetch`:** the same resolution and validation → `fetchMessages` (`since` defaults to `10m`) → it parses newline-delimited JSON, drops lines that fail `messageDataSchema`, and groups the messages by topic.
 
@@ -71,6 +72,7 @@ This is a stdio MCP server, so **anything written to stdout corrupts the protoco
 - **Never reflect raw user or server text in error messages.** Errors go through `sanitizeErrorMessage`, which passes through only messages that start with an allow-listed prefix and replaces everything else with a generic fallback. When you add a new user-facing error, add its fixed prefix to the allow-list and keep any interpolated values safe (validated or constant).
 - Treat fetched ntfy messages as untrusted. They're parsed with `messageDataSchema.safeParse`, never trusted raw. Their content is returned to the model on purpose (that's the tool's job), so don't add anything that acts on it.
 - Never log tokens. `Authorization` headers are built in place and must not be logged.
+- **The operator owns the destination.** The topic is `NTFY_TOPIC` unless `NTFY_ALLOW_TOPIC_OVERRIDE=true`, and when it's off, `topic` is left out of the tool schemas (`create*ToolInputSchema`). The configured `NTFY_TOKEN` is only ever sent to `NTFY_URL`'s origin (`isSameOrigin`). Keep both properties when adding parameters that influence where a request goes.
 
 ### Code conventions
 - ESM with `module: nodenext`. Relative imports **must** use the `.js` extension (`./utils/logger.js`).

@@ -412,7 +412,8 @@ Create a `.env` file by copying the example: `cp .env.example .env` — see [`.e
 | --- | --- | --- | --- |
 | `NTFY_TOPIC` | Yes | — | The ntfy topic to publish notifications to |
 | `NTFY_URL` | No | `https://ntfy.sh` | ntfy server URL — change this for self-hosted instances<br/>(include port if needed, e.g. `https://your-server.com:8443`) |
-| `NTFY_TOKEN` | No | — | Access token for protected topics or private servers |
+| `NTFY_TOKEN` | No | — | Access token for protected topics or private servers. Only ever sent to the `NTFY_URL` server |
+| `NTFY_ALLOW_TOPIC_OVERRIDE` | No | `false` | Set to `true` to let the agent choose a per-call `topic`. When off (the default), the `topic` parameter isn't offered to the agent and every notification and fetch uses `NTFY_TOPIC` |
 
 ### Authentication
 
@@ -548,13 +549,13 @@ TypeScript typing.",
     </tr>
     <tr>
       <td valign="top"><code>url</code></td>
-      <td valign="top">Custom ntfy server URL</td>
+      <td valign="top">Custom ntfy server URL. <code>NTFY_TOKEN</code> is only sent to the <code>NTFY_URL</code> server; pass <code>accessToken</code> for another server</td>
       <td valign="top">No</td>
       <td valign="top"><i>Default: <code>NTFY_URL</code></i></td>
     </tr>
     <tr>
       <td valign="top"><code>topic</code></td>
-      <td valign="top">Custom ntfy topic</td>
+      <td valign="top">Custom ntfy topic. <b>Only offered when <code>NTFY_ALLOW_TOPIC_OVERRIDE=true</code></b>; otherwise every notification goes to <code>NTFY_TOPIC</code></td>
       <td valign="top">No</td>
       <td valign="top"><i>Default: <code>NTFY_TOPIC</code></i></td>
     </tr>
@@ -646,7 +647,7 @@ AI assistants understand various ways to request message fetching:
 "Get messages from the last hour"
 "Find notifications with title 'Build Complete'"
 "Search for messages with the test_tube tag"
-"Show notifications from the updates topic from the last 24hr"
+"Show notifications from the updates topic from the last 24hr"  # needs NTFY_ALLOW_TOPIC_OVERRIDE=true
 "Check my latest alerts"
 ```
 
@@ -700,13 +701,13 @@ AI assistants understand various ways to request message fetching:
   <tbody>
     <tr>
       <td valign="top"><code>url</code></td>
-      <td valign="top">Custom ntfy server URL</td>
+      <td valign="top">Custom ntfy server URL. <code>NTFY_TOKEN</code> is only sent to the <code>NTFY_URL</code> server; pass <code>accessToken</code> for another server</td>
       <td valign="top">No</td>
       <td valign="top"><i>Default: <code>NTFY_URL</code></i></td>
     </tr>
     <tr>
       <td valign="top"><code>topic</code></td>
-      <td valign="top">Topic to fetch messages from</td>
+      <td valign="top">Topic to fetch messages from. <b>Only offered when <code>NTFY_ALLOW_TOPIC_OVERRIDE=true</code></b></td>
       <td valign="top">No</td>
       <td valign="top"><i>Default: <code>NTFY_TOPIC</code></i><br/><br/><code>{ "topic": "updates", "since": "all" }</code></td>
     </tr>
@@ -780,7 +781,7 @@ ntfy-me-mcp treats every tool argument as untrusted, because it comes from a mod
 - **Topics:** letters, numbers, `_` and `-` only, up to 128 characters.
 - **Error messages:** only a fixed set of known-safe messages reaches the model. Everything else is replaced with a generic message, so attacker-controlled text is never reflected back (see [#13](https://github.com/gitmotion/ntfy-me-mcp/issues/13)).
 - **Fetched messages are untrusted input.** `ntfy_me_fetch` hands message content to the model, and anyone who knows a public topic's name can publish to it. On ntfy.sh, use a hard-to-guess topic name, or a protected topic with an access token.
-- **Per-call overrides:** the `url`, `topic` and `accessToken` arguments override the configured defaults for a single call (see [#21](https://github.com/gitmotion/ntfy-me-mcp/issues/21)).
+- **Destination control:** notifications and fetches always use `NTFY_TOPIC`. The agent can't pick another topic unless you set `NTFY_ALLOW_TOPIC_OVERRIDE=true` (see [#21](https://github.com/gitmotion/ntfy-me-mcp/issues/21)). The agent can still pass a per-call `url`, but your `NTFY_TOKEN` is only ever sent to the `NTFY_URL` server. Any other server gets no credentials unless the call supplies its own `accessToken`.
 - **Tokens:** prefer your client's secret input (e.g. VS Code `${input:…}`) or an environment variable over hardcoding `NTFY_TOKEN` in a config file you share.
 
 Found a vulnerability? Please report it privately through [GitHub security advisories](https://github.com/gitmotion/ntfy-me-mcp/security/advisories/new) rather than in a public issue.
