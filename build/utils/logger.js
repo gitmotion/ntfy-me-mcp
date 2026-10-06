@@ -21,7 +21,7 @@ export function describeError(error) {
     const cause = error.cause;
     if (cause instanceof Error) {
         const code = cause.code;
-        const details = [typeof code === "string" ? code : "", cause.message]
+        const details = [typeof code === "string" ? code : "", cause.message.trim()]
             .filter(Boolean)
             .join(" ");
         const nested = cause instanceof AggregateError

@@ -171,16 +171,19 @@ const ACCESS_TOKEN_PATTERN = /^[\x21-\x7e]+$/;
  * Rejecting it here, with a fixed message, keeps the token out of the
  * header-validation errors fetch would otherwise throw (and we'd log).
  *
+ * Surrounding whitespace is trimmed first (fetch trims header values anyway).
+ *
  * @param token The access token (from accessToken or NTFY_TOKEN)
- * @returns The token unchanged when it's valid
+ * @returns The trimmed token when it's valid
  * @throws Error with an allow-listed message when it isn't
  */
 export function validateAccessToken(token: string): string {
-    if (!ACCESS_TOKEN_PATTERN.test(token)) {
+    const trimmedToken = token.trim();
+    if (!ACCESS_TOKEN_PATTERN.test(trimmedToken)) {
         throw new Error(
             "Invalid access token: it may only contain printable ASCII characters without spaces."
         );
     }
 
-    return token;
+    return trimmedToken;
 }

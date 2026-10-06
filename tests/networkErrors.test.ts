@@ -11,8 +11,12 @@ describe("sanitizeErrorMessage network failures (#18)", () => {
         "ENOTFOUND",
         "EAI_AGAIN",
         "UND_ERR_CONNECT_TIMEOUT",
+        "EHOSTUNREACH",
+        "ENETUNREACH",
         "CERT_HAS_EXPIRED",
         "DEPTH_ZERO_SELF_SIGNED_CERT",
+        "ERR_SSL_WRONG_VERSION_NUMBER",
+        "ERR_TLS_CERT_ALTNAME_INVALID",
     ])("says it could not connect for the %s connection-phase code", (code) => {
         expect(sanitizeErrorMessage(fetchFailed(code), "Failed to send ntfy notification")).toBe(
             `Failed to send ntfy notification: could not connect to the ntfy server (${code})`
@@ -58,6 +62,14 @@ describe("describeError (#18)", () => {
         expect(describeError(error)).toBe(
             "TypeError: fetch failed (cause: ECONNREFUSED connect ECONNREFUSED 127.0.0.1:9)"
         );
+    });
+
+    it("keeps the log entry on one line when a cause message ends with a newline (OpenSSL)", () => {
+        const cause = Object.assign(new Error("wrong version number:../deps/openssl/tlsany_meth.c:78:\n"), {
+            code: "ERR_SSL_WRONG_VERSION_NUMBER",
+        });
+
+        expect(describeError(new TypeError("fetch failed", { cause }))).not.toContain("\n");
     });
 
     it("lists the individual errors of an AggregateError cause (Happy Eyeballs)", () => {

@@ -23,7 +23,7 @@ export function describeError(error: unknown): string {
   const cause: unknown = error.cause;
   if (cause instanceof Error) {
     const code = (cause as { code?: unknown }).code;
-    const details = [typeof code === "string" ? code : "", cause.message]
+    const details = [typeof code === "string" ? code : "", cause.message.trim()]
       .filter(Boolean)
       .join(" ");
     const nested =

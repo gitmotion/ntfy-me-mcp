@@ -163,6 +163,54 @@ describe("createToolHandlers (#18)", () => {
             expect(errorSpy.mock.calls.flat().join(" ")).not.toContain("sk_SECRET");
         });
 
+        it("trims surrounding whitespace from an access token instead of rejecting it", async () => {
+            mockFetch.mockResolvedValueOnce(createResponse());
+
+            const { handleNotifyTool } = buildHandlers();
+            await handleNotifyTool({
+                title: "T",
+                message: "m",
+                accessToken: " tk_abc123\t ",
+                topic: undefined,
+                priority: "default",
+            });
+
+            expect(mockFetch.mock.calls[0][1]?.headers).toMatchObject({
+                Authorization: "Bearer tk_abc123",
+            });
+        });
+
+        it("rejects an access token with an interior space", async () => {
+            const { handleNotifyTool } = buildHandlers();
+            const result = await handleNotifyTool({
+                title: "T",
+                message: "m",
+                accessToken: "tk_abc 123",
+                topic: undefined,
+                priority: "default",
+            });
+
+            expect(result.structuredContent.error).toMatch(/^Invalid access token:/);
+            expect(mockFetch).not.toHaveBeenCalled();
+        });
+
+        it.each(["https://admin@ntfy.example.com", "https://:pw@ntfy.example.com"])(
+            "rejects a URL with a username or password only (%s)",
+            async (url) => {
+                const { handleNotifyTool } = buildHandlers({ getDefaultUrl: () => url });
+                const result = await handleNotifyTool({
+                    title: "T",
+                    message: "m",
+                    topic: undefined,
+                    priority: "default",
+                });
+
+                expect(result.structuredContent.error).toMatch(
+                    /^Invalid url: credentials in the URL are not supported/
+                );
+            }
+        );
+
         it("rejects URLs that embed credentials, and doesn't log them", async () => {
             const errorSpy = vi.spyOn(Logger.getInstance(), "error").mockImplementation(() => {});
 
