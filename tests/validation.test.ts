@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import { fetchToolInputSchema } from "../src/schemas/fetchTool.schema.js";
 import { notifyToolInputSchema } from "../src/schemas/notifyTool.schema.js";
 import {
+    isSameOrigin,
     isUnresolvedInputReference,
     validateNtfyTopic,
     validateNtfyUrl,
@@ -276,5 +277,24 @@ describe("isUnresolvedInputReference", () => {
         expect(isUnresolvedInputReference("")).toBe(false);
         expect(isUnresolvedInputReference(undefined)).toBe(false);
         expect(isUnresolvedInputReference(null)).toBe(false);
+    });
+});
+
+describe("isSameOrigin", () => {
+    it("matches the same scheme, host and port regardless of path, case or default port", () => {
+        expect(isSameOrigin("https://NTFY.sh:443/some/path", "https://ntfy.sh")).toBe(true);
+        expect(isSameOrigin("http://localhost:8080/", "http://localhost:8080/ntfy")).toBe(true);
+    });
+
+    it("rejects a different host, scheme or port", () => {
+        expect(isSameOrigin("https://evil.example.com", "https://ntfy.sh")).toBe(false);
+        expect(isSameOrigin("http://ntfy.sh", "https://ntfy.sh")).toBe(false);
+        expect(isSameOrigin("https://ntfy.sh:8443", "https://ntfy.sh")).toBe(false);
+        expect(isSameOrigin("https://ntfy.sh.evil.example.com", "https://ntfy.sh")).toBe(false);
+    });
+
+    it("returns false when either value is not a valid URL", () => {
+        expect(isSameOrigin("not a url", "https://ntfy.sh")).toBe(false);
+        expect(isSameOrigin("https://ntfy.sh", "")).toBe(false);
     });
 });

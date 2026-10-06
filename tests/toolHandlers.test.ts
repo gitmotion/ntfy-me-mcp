@@ -188,6 +188,154 @@ describe("createToolHandlers", () => {
         });
     });
 
+    describe("topic override (#21)", () => {
+        it("ignores a per-call topic and uses NTFY_TOPIC when overrides are not allowed (default)", async () => {
+            mockFetch.mockResolvedValueOnce(createResponse());
+
+            const { handleNotifyTool } = buildHandlers();
+            const result = await handleNotifyTool({
+                title: "Locked",
+                message: "Goes to the configured topic",
+                topic: "agent_picked_topic",
+                priority: "default",
+            });
+
+            expect(mockFetch.mock.calls[0][0]).toBe("https://ntfy.sh/default_topic");
+            expect(result.structuredContent).toEqual({
+                success: true,
+                endpoint: "https://ntfy.sh/default_topic",
+            });
+        });
+
+        it("uses a per-call topic when allowTopicOverride is true", async () => {
+            mockFetch.mockResolvedValueOnce(createResponse());
+
+            const { handleNotifyTool } = buildHandlers({ allowTopicOverride: true });
+            await handleNotifyTool({
+                title: "Override",
+                message: "Goes to the requested topic",
+                topic: "agent_picked_topic",
+                priority: "default",
+            });
+
+            expect(mockFetch.mock.calls[0][0]).toBe("https://ntfy.sh/agent_picked_topic");
+        });
+
+        it("still validates a per-call topic when overrides are allowed", async () => {
+            const { handleNotifyTool } = buildHandlers({ allowTopicOverride: true });
+            const result = await handleNotifyTool({
+                title: "Override",
+                message: "Bad topic",
+                topic: "bad topic!",
+                priority: "default",
+            });
+
+            expect(result.isError).toBe(true);
+            expect(result.structuredContent.error).toMatch(/^Invalid topic:/);
+            expect(mockFetch).not.toHaveBeenCalled();
+        });
+
+        it("ignores a per-call fetch topic when overrides are not allowed", async () => {
+            mockFetchMessages.mockResolvedValueOnce(null);
+
+            const { handleFetchTool } = buildHandlers();
+            await handleFetchTool({ topic: "agent_picked_topic", priorities: undefined });
+
+            expect(mockFetchMessages).toHaveBeenCalledWith(
+                expect.objectContaining({ topic: "default_topic" })
+            );
+        });
+
+        it("uses a per-call fetch topic when allowTopicOverride is true", async () => {
+            mockFetchMessages.mockResolvedValueOnce(null);
+
+            const { handleFetchTool } = buildHandlers({ allowTopicOverride: true });
+            await handleFetchTool({ topic: "agent_picked_topic", priorities: undefined });
+
+            expect(mockFetchMessages).toHaveBeenCalledWith(
+                expect.objectContaining({ topic: "agent_picked_topic" })
+            );
+        });
+    });
+
+    describe("NTFY_TOKEN origin guard", () => {
+        it("does not send NTFY_TOKEN to a per-call url on a different origin", async () => {
+            mockFetch.mockResolvedValueOnce(createResponse());
+
+            const { handleNotifyTool } = buildHandlers();
+            await handleNotifyTool({
+                title: "Elsewhere",
+                message: "Other server",
+                url: "https://evil.example.com",
+                topic: undefined,
+                priority: "default",
+            });
+
+            const [endpoint, options] = mockFetch.mock.calls[0];
+            expect(endpoint).toBe("https://evil.example.com/default_topic");
+            expect(options?.headers).not.toHaveProperty("Authorization");
+        });
+
+        it("sends NTFY_TOKEN when the per-call url has the same origin as NTFY_URL", async () => {
+            mockFetch.mockResolvedValueOnce(createResponse());
+
+            const { handleNotifyTool } = buildHandlers();
+            await handleNotifyTool({
+                title: "Same server",
+                message: "Trailing slash and explicit port",
+                url: "https://NTFY.sh:443/",
+                topic: undefined,
+                priority: "default",
+            });
+
+            const [, options] = mockFetch.mock.calls[0];
+            expect(options?.headers).toMatchObject({ Authorization: "Bearer env-token" });
+        });
+
+        it("sends an explicit accessToken to any origin", async () => {
+            mockFetch.mockResolvedValueOnce(createResponse());
+
+            const { handleNotifyTool } = buildHandlers();
+            await handleNotifyTool({
+                title: "Elsewhere",
+                message: "Other server, own token",
+                url: "https://other.example.com",
+                accessToken: "per-call-token",
+                topic: undefined,
+                priority: "default",
+            });
+
+            const [, options] = mockFetch.mock.calls[0];
+            expect(options?.headers).toMatchObject({ Authorization: "Bearer per-call-token" });
+        });
+
+        it("does not pass NTFY_TOKEN to fetchMessages for a different origin", async () => {
+            mockFetchMessages.mockResolvedValueOnce(null);
+
+            const { handleFetchTool } = buildHandlers();
+            await handleFetchTool({
+                url: "https://evil.example.com",
+                topic: undefined,
+                priorities: undefined,
+            });
+
+            expect(mockFetchMessages).toHaveBeenCalledWith(
+                expect.objectContaining({ url: "https://evil.example.com", token: undefined })
+            );
+        });
+
+        it("passes NTFY_TOKEN to fetchMessages for the configured server", async () => {
+            mockFetchMessages.mockResolvedValueOnce(null);
+
+            const { handleFetchTool } = buildHandlers();
+            await handleFetchTool({ topic: undefined, priorities: undefined });
+
+            expect(mockFetchMessages).toHaveBeenCalledWith(
+                expect.objectContaining({ url: "https://ntfy.sh", token: "env-token" })
+            );
+        });
+    });
+
     describe("handleFetchTool", () => {
         it("passes defaults and filters to fetchMessages", async () => {
             mockFetchMessages.mockResolvedValueOnce({

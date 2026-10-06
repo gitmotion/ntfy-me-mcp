@@ -5,7 +5,7 @@ export const fetchToolInputSchema = z.object({
     url: z
         .string()
         .optional()
-        .describe("Optional custom ntfy server URL (defaults to NTFY_URL env var or https://ntfy.sh)"),
+        .describe("Optional custom ntfy server URL (defaults to NTFY_URL env var or https://ntfy.sh). NTFY_TOKEN is only sent to NTFY_URL; use accessToken for other servers"),
     topic: createOptionalNtfyTopicSchema("Optional custom ntfy topic/channel to get messages from (defaults to NTFY_TOPIC env var)"),
     accessToken: z
         .string()
@@ -30,3 +30,13 @@ export const fetchToolInputSchema = z.object({
         .optional()
         .describe("Find messages with specific tags (e.g., 'error', 'warning', 'success')"),
 });
+/**
+ * Builds the ntfy_me_fetch input schema for the server's topic policy.
+ * Unless topic overrides are allowed, `topic` is left out so fetches always
+ * read NTFY_TOPIC.
+ */
+export function createFetchToolInputSchema({ allowTopicOverride, }) {
+    return allowTopicOverride
+        ? fetchToolInputSchema
+        : fetchToolInputSchema.omit({ topic: true });
+}

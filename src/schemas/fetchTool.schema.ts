@@ -7,7 +7,7 @@ export const fetchToolInputSchema = z.object({
         .string()
         .optional()
         .describe(
-            "Optional custom ntfy server URL (defaults to NTFY_URL env var or https://ntfy.sh)"
+            "Optional custom ntfy server URL (defaults to NTFY_URL env var or https://ntfy.sh). NTFY_TOKEN is only sent to NTFY_URL; use accessToken for other servers"
         ),
     topic: createOptionalNtfyTopicSchema(
         "Optional custom ntfy topic/channel to get messages from (defaults to NTFY_TOPIC env var)"
@@ -44,4 +44,23 @@ export const fetchToolInputSchema = z.object({
         ),
 });
 
-export type FetchToolInput = z.infer<typeof fetchToolInputSchema>;
+// `topic` is optional because the tool is registered without it when topic
+// overrides are disabled (see createFetchToolInputSchema).
+export type FetchToolInput = Omit<z.infer<typeof fetchToolInputSchema>, "topic"> & {
+    topic?: string;
+};
+
+/**
+ * Builds the ntfy_me_fetch input schema for the server's topic policy.
+ * Unless topic overrides are allowed, `topic` is left out so fetches always
+ * read NTFY_TOPIC.
+ */
+export function createFetchToolInputSchema({
+    allowTopicOverride,
+}: {
+    allowTopicOverride: boolean;
+}) {
+    return allowTopicOverride
+        ? fetchToolInputSchema
+        : fetchToolInputSchema.omit({ topic: true });
+}

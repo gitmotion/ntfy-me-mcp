@@ -18,4 +18,5 @@ export const toolHandlerConfigSchema = z.object({
         output: z.union([z.string(), z.undefined()]),
     })
         .optional(),
+    allowTopicOverride: z.boolean().optional(),
 });

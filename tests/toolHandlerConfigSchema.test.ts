@@ -18,6 +18,18 @@ describe("toolHandlerConfigSchema", () => {
         expect(toolHandlerConfigSchema.parse({})).toEqual({});
     });
 
+    it("accepts an allowTopicOverride flag", () => {
+        expect(
+            toolHandlerConfigSchema.parse({ allowTopicOverride: true }).allowTopicOverride
+        ).toBe(true);
+    });
+
+    it("rejects a non-boolean allowTopicOverride", () => {
+        expect(() =>
+            toolHandlerConfigSchema.parse({ allowTopicOverride: "true" })
+        ).toThrow();
+    });
+
     it("rejects non-function config values", () => {
         expect(() =>
             toolHandlerConfigSchema.parse({

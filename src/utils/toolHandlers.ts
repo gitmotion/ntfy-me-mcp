@@ -10,6 +10,7 @@ import { detectMarkdown } from "./markdown.js";
 import { fetchMessages } from "./messages.js";
 import { processActions } from "./actions.js";
 import {
+    isSameOrigin,
     sanitizeErrorMessage,
     validateNtfyTopic,
     validateNtfyUrl,
@@ -22,13 +23,20 @@ export function createToolHandlers(config: ToolHandlerConfig = {}) {
     const getDefaultTopic = parsedConfig.getDefaultTopic ?? (() => undefined);
     const getDefaultUrl = parsedConfig.getDefaultUrl ?? (() => "https://ntfy.sh");
     const getDefaultToken = parsedConfig.getDefaultToken ?? (() => undefined);
+    const allowTopicOverride = parsedConfig.allowTopicOverride ?? false;
 
     function resolveTopic(topic?: string): string {
-        if (topic) {
+        if (topic && allowTopicOverride) {
             return validateNtfyTopic(topic, "topic");
         }
 
         const defaultTopic = getDefaultTopic();
+        if (topic && topic.trim() !== defaultTopic?.trim()) {
+            logger.warn(
+                "Ignoring the per-call topic: topic overrides are disabled. Set NTFY_ALLOW_TOPIC_OVERRIDE=true to allow them."
+            );
+        }
+
         if (defaultTopic) {
             return validateNtfyTopic(defaultTopic, "NTFY_TOPIC");
         }
@@ -36,6 +44,31 @@ export function createToolHandlers(config: ToolHandlerConfig = {}) {
         throw new Error(
             "NTFY_TOPIC environment variable is required. Please ensure it's added to your .env file or passed as an environment variable."
         );
+    }
+
+    /**
+     * An explicit accessToken is always used. The configured NTFY_TOKEN is only
+     * attached when the request goes to the same origin as NTFY_URL, so a
+     * per-call url can't redirect the configured credential to another server.
+     */
+    function resolveToken(url: string, accessToken?: string): string | undefined {
+        if (accessToken) {
+            return accessToken;
+        }
+
+        const defaultToken = getDefaultToken();
+        if (!defaultToken) {
+            return undefined;
+        }
+
+        if (isSameOrigin(url, getDefaultUrl())) {
+            return defaultToken;
+        }
+
+        logger.warn(
+            "Not sending NTFY_TOKEN: the request URL is not on the NTFY_URL server. Pass accessToken to authenticate with another server."
+        );
+        return undefined;
     }
 
     async function handleNotifyTool({
@@ -52,9 +85,9 @@ export function createToolHandlers(config: ToolHandlerConfig = {}) {
         try {
             const url = customUrl || getDefaultUrl();
             const topic = resolveTopic(customTopic);
-            const token = accessToken || getDefaultToken();
 
             validateNtfyUrl(url, "url");
+            const token = resolveToken(url, accessToken);
 
             const baseUrl = url.endsWith("/") ? url.slice(0, -1) : url;
             const endpoint = `${baseUrl}/${topic}`;
@@ -161,10 +194,10 @@ export function createToolHandlers(config: ToolHandlerConfig = {}) {
         try {
             const url = customUrl || getDefaultUrl();
             const topic = resolveTopic(customTopic);
-            const token = accessToken || getDefaultToken();
             const sinceSetting = since === null ? undefined : since || "10m";
 
             validateNtfyUrl(url, "url");
+            const token = resolveToken(url, accessToken);
 
             const messageRecords = await fetchMessages({
                 url,

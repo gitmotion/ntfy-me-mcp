@@ -10,7 +10,7 @@ export const notifyToolInputSchema = z.object({
         .string()
         .optional()
         .describe(
-            "Optional custom ntfy URL (defaults to NTFY_URL env var or https://ntfy.sh)"
+            "Optional custom ntfy URL (defaults to NTFY_URL env var or https://ntfy.sh). NTFY_TOKEN is only sent to NTFY_URL; use accessToken for other servers"
         ),
     topic: createOptionalNtfyTopicSchema(
         "Optional custom ntfy topic (defaults to NTFY_TOPIC env var)"
@@ -35,4 +35,23 @@ export const notifyToolInputSchema = z.object({
         .describe("Optional array of view actions to add to the notification"),
 });
 
-export type NotifyToolInput = z.infer<typeof notifyToolInputSchema>;
+// `topic` is optional because the tool is registered without it when topic
+// overrides are disabled (see createNotifyToolInputSchema).
+export type NotifyToolInput = Omit<z.infer<typeof notifyToolInputSchema>, "topic"> & {
+    topic?: string;
+};
+
+/**
+ * Builds the ntfy_me input schema for the server's topic policy.
+ * Unless topic overrides are allowed, `topic` is left out entirely so the
+ * agent can't see or send it and every notification goes to NTFY_TOPIC.
+ */
+export function createNotifyToolInputSchema({
+    allowTopicOverride,
+}: {
+    allowTopicOverride: boolean;
+}) {
+    return allowTopicOverride
+        ? notifyToolInputSchema
+        : notifyToolInputSchema.omit({ topic: true });
+}
