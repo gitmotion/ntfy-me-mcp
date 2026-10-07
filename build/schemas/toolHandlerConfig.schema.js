@@ -20,4 +20,6 @@ export const toolHandlerConfigSchema = z.object({
         .optional(),
     allowTopicOverride: z.boolean().optional(),
     allowUrlOverride: z.boolean().optional(),
+    // NTFY_TOPIC plus NTFY_TOPICS_ALLOWLIST (#34). Non-empty → only these topics; wins over allowTopicOverride.
+    allowedTopics: z.array(z.string()).optional(),
 });

@@ -19,6 +19,10 @@ startCommand:
         type: string
         default: ""
         description: Authentication token for protected topics (only sent to the configured url)
+      topicsAllowlist:
+        type: string
+        default: ""
+        description: Comma-separated topics the agent may choose from (plus topic), e.g. alerts,builds
       allowTopicOverride:
         type: boolean
         default: false
@@ -37,6 +41,7 @@ startCommand:
         { NTFY_TOPIC: config.topic },
         config.url ? { NTFY_URL: config.url } : {},
         config.token ? { NTFY_TOKEN: config.token } : {},
+        config.topicsAllowlist ? { NTFY_TOPICS_ALLOWLIST: config.topicsAllowlist } : {},
         config.allowTopicOverride === true ? { NTFY_ALLOW_TOPIC_OVERRIDE: 'true' } : {},
         config.allowUrlOverride === true ? { NTFY_ALLOW_URL_OVERRIDE: 'true' } : {}
       )

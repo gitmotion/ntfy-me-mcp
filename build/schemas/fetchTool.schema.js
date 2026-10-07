@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { createOptionalNtfyPrioritiesSchema } from "./ntfyPriority.schema.js";
-import { createOptionalNtfyTopicSchema } from "./ntfyTopic.schema.js";
+import { createAllowedTopicSchema, createOptionalNtfyTopicSchema } from "./ntfyTopic.schema.js";
 export const fetchToolInputSchema = z.object({
     url: z
         .string()
@@ -34,14 +34,23 @@ export const fetchToolInputSchema = z.object({
  * Builds the ntfy_me_fetch input schema for the server's destination policy.
  * Unless overrides are allowed, `topic` and/or `url` are left out entirely so
  * the agent can't see or send them: requests go to NTFY_TOPIC on NTFY_URL.
+ * With `allowedTopics` (NTFY_TOPIC + NTFY_TOPICS_ALLOWLIST), `topic` is an
+ * enum of exactly those topics instead.
  *
  * Note: the static return type is the most restricted shape (neither key);
  * which keys exist at runtime depends on the flags. Handlers take the input
  * type with `topic`/`url` optional, so either shape is accepted.
  */
-export function createFetchToolInputSchema({ allowTopicOverride, allowUrlOverride, }) {
-    return fetchToolInputSchema.omit({
+export function createFetchToolInputSchema({ allowTopicOverride, allowUrlOverride, allowedTopics = [], }) {
+    const schema = fetchToolInputSchema.omit({
         ...(allowTopicOverride ? {} : { topic: true }),
         ...(allowUrlOverride ? {} : { url: true }),
+    });
+    if (allowedTopics.length === 0) {
+        return schema;
+    }
+    // NTFY_TOPICS_ALLOWLIST (#34): offer exactly these topics, whatever allowTopicOverride says.
+    return schema.extend({
+        topic: createAllowedTopicSchema(allowedTopics, `Topic to fetch messages from. One of: ${allowedTopics.join(", ")}. Defaults to ${allowedTopics[0]} (NTFY_TOPIC)`),
     });
 }
