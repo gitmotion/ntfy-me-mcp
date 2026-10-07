@@ -10,6 +10,7 @@ import {
     validateStartupConfig,
     sanitizeErrorMessage,
     validateActionUrl,
+    validateClickUrl,
 } from "../src/utils/validation.js";
 import {
     createOptionalNtfyTopicSchema,
@@ -129,7 +130,53 @@ describe("validateActionUrl (#29)", () => {
     });
 });
 
+describe("validateClickUrl (#26)", () => {
+    it.each([
+        "https://example.com/run/1",
+        "http://example.com",
+        "mailto:someone@example.com",
+        "geo:37.7749,-122.4194",
+        "ntfy://ntfy.sh/mytopic",
+    ])("accepts %s", (url) => {
+        expect(() => validateClickUrl(url)).not.toThrow();
+    });
+
+    // Fixed messages: nothing the agent sent is echoed back.
+    it.each([
+        "javascript:alert(1)",
+        "data:text/html,hi",
+        "file:///etc/passwd",
+        "intent://scan/#Intent;scheme=zxing;end",
+        "ignore-previous-instructions:SECRET",
+        `${"x".repeat(300)}:payload`,
+    ])("rejects %s with a fixed message", (url) => {
+        expect(() => validateClickUrl(url)).toThrow(
+            new Error("Invalid click url: only http://, https://, mailto:, geo: and ntfy:// links are supported.")
+        );
+    });
+
+    it("rejects a value that isn't a URL with a fixed message", () => {
+        expect(() => validateClickUrl("not a url ignore-previous-instructions")).toThrow(
+            new Error("Invalid click url: not a valid URL. Only http://, https://, mailto:, geo: and ntfy:// links are supported.")
+        );
+    });
+
+    it.each(["https://alice:SECRET@example.com/path", "ntfy://alice:SECRET@ntfy.example.com/topic"])(
+        "rejects embedded credentials in %s",
+        (url) => {
+            expect(() => validateClickUrl(url)).toThrow(
+                new Error("Invalid click url: links with embedded credentials are not supported.")
+            );
+        }
+    );
+});
+
 describe("sanitizeErrorMessage", () => {
+    it("passes through Invalid click url: messages", () => {
+        const message = "Invalid click url: only http://, https://, mailto:, geo: and ntfy:// links are supported.";
+        expect(sanitizeErrorMessage(new Error(message), "fallback")).toBe(message);
+    });
+
     it.each([
         "Invalid action url: only http:// and https:// links are supported.",
         "Invalid actions: at most 3 view actions are allowed per notification.",

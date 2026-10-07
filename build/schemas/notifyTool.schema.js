@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { createOptionalClickUrlSchema } from "./ntfyClick.schema.js";
 import { createOptionalDefaultedNtfyPrioritySchema } from "./ntfyPriority.schema.js";
 import { createAllowedTopicSchema, createOptionalNtfyTopicSchema } from "./ntfyTopic.schema.js";
 import { NTFY_MAX_ACTIONS } from "../utils/validation.js";
@@ -26,6 +27,7 @@ export const notifyToolInputSchema = z.object({
         .max(NTFY_MAX_ACTIONS, `At most ${NTFY_MAX_ACTIONS} view actions are allowed per notification`)
         .optional()
         .describe("Optional array of view actions to add to the notification (max 3; each url must be http:// or https://)"),
+    click: createOptionalClickUrlSchema("Optional link opened when the notification is tapped (http://, https://, mailto:, geo: or ntfy://)"),
 });
 /**
  * Builds the ntfy_me input schema for the server's destination policy.

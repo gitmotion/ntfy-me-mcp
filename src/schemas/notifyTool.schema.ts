@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { createOptionalClickUrlSchema } from "./ntfyClick.schema.js";
 import { createOptionalDefaultedNtfyPrioritySchema } from "./ntfyPriority.schema.js";
 import { createAllowedTopicSchema, createOptionalNtfyTopicSchema } from "./ntfyTopic.schema.js";
 import { NTFY_MAX_ACTIONS } from "../utils/validation.js";
@@ -37,12 +38,18 @@ export const notifyToolInputSchema = z.object({
         .describe(
             "Optional array of view actions to add to the notification (max 3; each url must be http:// or https://)"
         ),
+    click: createOptionalClickUrlSchema(
+        "Optional link opened when the notification is tapped (http://, https://, mailto:, geo: or ntfy://)"
+    ),
 });
 
 // `topic` is optional because the tool is registered without it when topic
 // overrides are disabled (and `url` is already optional) (see createNotifyToolInputSchema).
-export type NotifyToolInput = Omit<z.infer<typeof notifyToolInputSchema>, "topic"> & {
+// `click` is optional input; its blank-to-undefined transform would otherwise
+// make the key required in the inferred output type.
+export type NotifyToolInput = Omit<z.infer<typeof notifyToolInputSchema>, "topic" | "click"> & {
     topic?: string;
+    click?: string;
 };
 
 /**

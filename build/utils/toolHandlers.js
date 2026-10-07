@@ -5,7 +5,7 @@ import { validateAccessToken } from "./validation.js";
 import { detectMarkdown } from "./markdown.js";
 import { fetchMessages } from "./messages.js";
 import { processActions } from "./actions.js";
-import { isSameOrigin, sanitizeErrorMessage, validateNtfyTopic, validateNtfyUrl, validateViewActions, } from "./validation.js";
+import { isSameOrigin, sanitizeErrorMessage, validateNtfyTopic, validateClickUrl, validateNtfyUrl, validateViewActions, } from "./validation.js";
 const logger = Logger.getInstance();
 // Normalizes a URL for the "is this the configured server?" warning check
 // (case of scheme/host, default ports, trailing slashes). Never used for routing.
@@ -80,7 +80,7 @@ export function createToolHandlers(config = {}) {
         return { token: undefined, withheldDefaultToken: true };
     }
     const WITHHELD_TOKEN_HINT = "NTFY_TOKEN is only sent to the NTFY_URL server; pass the 'accessToken' parameter to authenticate with this server.";
-    async function handleNotifyTool({ title, message, url: customUrl, topic: customTopic, accessToken, priority, tags, markdown, actions, }) {
+    async function handleNotifyTool({ title, message, url: customUrl, topic: customTopic, accessToken, priority, tags, markdown, actions, click, }) {
         try {
             const url = resolveUrl(customUrl);
             const topic = resolveTopic(customTopic);
@@ -110,6 +110,12 @@ export function createToolHandlers(config = {}) {
             }
             if (viewActions.length > 0) {
                 headers["X-Actions"] = encodeHeaderValue(JSON.stringify(viewActions));
+            }
+            // Blank means not provided; otherwise validated like the schema does (#26).
+            const clickUrl = click?.trim();
+            if (clickUrl) {
+                validateClickUrl(clickUrl);
+                headers["X-Click"] = encodeHeaderValue(clickUrl);
             }
             const cleanEndpoint = endpoint.trim();
             logger.info(`Sending notification to ${cleanEndpoint}` +

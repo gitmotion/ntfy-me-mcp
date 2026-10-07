@@ -46,6 +46,31 @@ export function validateActionUrl(url) {
         throw new Error("Invalid action url: links with embedded credentials are not supported.");
     }
 }
+/** Schemes a notification's click link may use (#26), as ntfy's click action supports. */
+const CLICK_URL_SCHEMES = new Set(["http:", "https:", "mailto:", "geo:", "ntfy:"]);
+/**
+ * Validates a notification's click link (X-Click): http(s), mailto:, geo: or
+ * ntfy:// only, and no embedded credentials (#26). The messages are fixed, so
+ * nothing the agent sent is echoed back.
+ *
+ * @param url The link opened when the notification is tapped
+ * @throws Error with an "Invalid click url:" message if the link isn't allowed
+ */
+export function validateClickUrl(url) {
+    let parsed;
+    try {
+        parsed = new URL(url);
+    }
+    catch {
+        throw new Error("Invalid click url: not a valid URL. Only http://, https://, mailto:, geo: and ntfy:// links are supported.");
+    }
+    if (!CLICK_URL_SCHEMES.has(parsed.protocol)) {
+        throw new Error("Invalid click url: only http://, https://, mailto:, geo: and ntfy:// links are supported.");
+    }
+    if (parsed.username || parsed.password) {
+        throw new Error("Invalid click url: links with embedded credentials are not supported.");
+    }
+}
 /**
  * Enforces the view-action rules at request-building time, the same rules the
  * tool schema applies, so callers that bypass the schema can't send more.
@@ -183,6 +208,7 @@ export function sanitizeErrorMessage(error, fallbackMessage) {
             error.message.startsWith("Invalid access token:") ||
             error.message.startsWith("Invalid action url:") ||
             error.message.startsWith("Invalid actions:") ||
+            error.message.startsWith("Invalid click url:") ||
             error.message.startsWith("Authentication failed when sending notification.") ||
             error.message.startsWith("Authentication failed when fetching messages.") ||
             error.message.startsWith("Failed to send ntfy notification. Status code:") ||

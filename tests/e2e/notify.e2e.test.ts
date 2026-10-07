@@ -129,6 +129,26 @@ describe("ntfy_me against a real ntfy server", () => {
         expect(await pollTopic(ntfyUrl, topic)).toEqual([]);
     });
 
+    it("sends a click link, including a non-ASCII one, that ntfy stores intact (#26)", async () => {
+        const topic = uniqueTopic("e2e_click");
+        session = await connect({ NTFY_URL: ntfyUrl, NTFY_TOPIC: topic });
+
+        const web = await callTool(session, "ntfy_me", { title: "Web", message: "m", click: "https://example.com/über?q=ä" });
+        const mail = await callTool(session, "ntfy_me", { title: "Mail", message: "m", click: "mailto:someone@example.com" });
+        const bad = await callTool(session, "ntfy_me", { title: "Bad", message: "m", click: "javascript:alert('injected')" });
+
+        expect(web.isError).toBeFalsy();
+        expect(mail.isError).toBeFalsy();
+        expect(bad.isError).toBe(true);
+        expect(bad.content[0].text).toContain("Invalid click url:");
+        expect(bad.content[0].text).not.toContain("injected");
+        const messages = await pollTopic(ntfyUrl, topic);
+        expect(messages.map((message) => [message.title, message.click])).toEqual([
+            ["Web", "https://example.com/über?q=ä"],
+            ["Mail", "mailto:someone@example.com"],
+        ]);
+    });
+
     it("reports a server that refuses the connection with a fixed message, leaking no details", async () => {
         // A port that was free a moment ago, so the connection is really refused
         // (port 9 would be blocked by fetch itself before any connection attempt).
