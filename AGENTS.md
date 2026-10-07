@@ -21,11 +21,12 @@ Configuration comes from env vars (`NTFY_TOPIC` required; `NTFY_URL` defaults to
 |---|---|
 | `npm install` | Install dependencies (`npm ci` in CI and Docker) |
 | `npm run build` | `tsc` → `build/`, then `chmod +x build/index.js`. Also a full type-check |
-| `npm run typecheck` | Fast type-check of `src/` without emitting |
-| `npm test` | Vitest, single run (`vitest run`). Mocked, no network. `tests/stdout.test.ts` spawns `build/index.js`, so build first |
+| `npm run typecheck` | Fast type-check of `src/` and the tests (`tsconfig.test.json`) without emitting |
+| `npm test` | Vitest unit suite, single run (`vitest run`). Mocked, no network; `tests/e2e` excluded. `tests/stdout.test.ts` and `tests/serverToolList.test.ts` spawn `build/index.js`, so build first |
+| `npm run test:e2e` | End-to-end suite (`vitest.e2e.config.ts`): `build/index.js` over MCP stdio against real ntfy servers that `tests/e2e/globalSetup.ts` runs in Docker. Needs Docker and a build |
 | `npm start` | Run the built server on stdio (`node build/index.js`). Needs `NTFY_TOPIC` |
 
-CI (`.github/workflows/build-and-test.yml`) runs `npm ci && npm run build && npm test` on Node 24 for every push and pull request. Run the same three before you finish.
+CI (`.github/workflows/build-and-test.yml`) runs `npm ci && npm run build && npm test` on Node 24 for every push and pull request. Run the same three before you finish, plus `npm run typecheck`, and `npm run test:e2e` when you change request building, headers, auth or routing (CI doesn't run those two yet: #49).
 
 - Use `npm test`. Bare `npx vitest` starts watch mode and never exits in a non-interactive shell.
 - To exercise the built server end to end, never point it at the public `ntfy.sh` from scripts or tests. Run a local mock HTTP server, or a local ntfy container (`docker run --rm -p 8080:80 binwiederhier/ntfy serve`), and pass its URL to the server explicitly, e.g. `npx @modelcontextprotocol/inspector --cli node build/index.js -e NTFY_URL=http://127.0.0.1:8080 -e NTFY_TOPIC=test --method tools/list`. The Inspector (v2, the current `npx` default) does **not** forward your shell environment to the server, so variables set in front of the command are ignored. The server then either exits because `NTFY_TOPIC` is missing, or silently uses a `.env` in the working directory, whose `NTFY_URL` may be, or default to, `https://ntfy.sh`. Always use `-e`.
@@ -89,7 +90,7 @@ The compiled `build/` directory is checked in. When you change anything under `s
 
 ## Testing
 
-- Vitest. All tests are mocked; no test may call a live ntfy server.
+- Vitest. The unit suite is mocked. The e2e suite (`tests/e2e`) talks only to the ntfy containers its global setup starts. No test may call the public ntfy.sh.
 - Test files mirror source concerns:
   - `tests/toolHandlers.test.ts`: handler behavior, with the global `fetch` stubbed (`vi.stubGlobal`) and `fetchMessages` mocked
   - `tests/messages.test.ts`: fetch and NDJSON parsing, with the global `fetch` stubbed
@@ -97,9 +98,11 @@ The compiled `build/` directory is checked in. When you change anything under `s
   - `tests/validation.test.ts`: URL/topic rules and error sanitization
   - `tests/*Schema.test.ts`: schema behavior
   - `tests/actions.test.ts`, `tests/markdown.test.ts`: the detection utilities
+  - `tests/serverToolList.test.ts`: spawns the built server; env → tool-schema wiring (overrides, allowlist)
+  - `tests/e2e/*.e2e.test.ts`: end to end over MCP stdio against Docker ntfy, asserted through ntfy's own API (helpers in `tests/e2e/helpers.ts`, containers in `tests/e2e/docker.ts`)
   - `tests/stdout.test.ts`: spawns the built server; stdout stays JSON-RPC-only, an unresolved `${input:…}` `NTFY_TOKEN` exits without touching stdin or stdout, `./.env` is loaded (as UTF-8), and no `DOTENV_*` variable can override the client's env or change which file is read
 - Any change to tool handlers, schemas, validation or fetch parsing needs new or updated tests in the matching file.
-- Tests are not type-checked by `npm run typecheck` (`tsconfig.json` includes only `src/`), so keep them type-correct by hand.
+- `npm run typecheck` also type-checks the tests (`tsconfig.test.json`); keep it clean.
 
 ## Docs that must move with the code
 

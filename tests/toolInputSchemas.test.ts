@@ -4,6 +4,12 @@ import { createNotifyToolInputSchema } from "../src/schemas/notifyTool.schema.js
 
 const LOCKED = { allowTopicOverride: false, allowUrlOverride: false };
 
+// The factories' static type is the most restricted shape (see their doc
+// comments); which keys exist at runtime depends on the policy.
+function shapeOf(schema: { shape: object }) {
+    return schema.shape as Record<string, { description?: string }>;
+}
+
 describe("tool input schemas and destination overrides (#21)", () => {
     it.each([
         ["ntfy_me", createNotifyToolInputSchema, { title: "T", message: "m" }],
@@ -47,7 +53,7 @@ describe("tool input schemas and destination overrides (#21)", () => {
     it("tells the agent that NTFY_TOKEN is only sent to NTFY_URL when url is offered", () => {
         const open = { allowTopicOverride: true, allowUrlOverride: true };
         for (const schema of [createNotifyToolInputSchema(open), createFetchToolInputSchema(open)]) {
-            expect(schema.shape.url.description).toMatch(/NTFY_TOKEN is only sent to NTFY_URL/);
+            expect(shapeOf(schema).url.description).toMatch(/NTFY_TOKEN is only sent to NTFY_URL/);
         }
     });
 
@@ -77,7 +83,7 @@ describe("tool input schemas and destination overrides (#21)", () => {
             const schema = create(ALLOWLIST);
 
             for (const topic of ["", "   ", undefined]) {
-                expect(schema.parse({ ...base, topic }).topic).toBeUndefined();
+                expect((schema.parse({ ...base, topic }) as { topic?: string }).topic).toBeUndefined();
             }
         });
 
@@ -92,8 +98,8 @@ describe("tool input schemas and destination overrides (#21)", () => {
 
         it("lists the allowed topics in the topic description", () => {
             for (const schema of [createNotifyToolInputSchema(ALLOWLIST), createFetchToolInputSchema(ALLOWLIST)]) {
-                expect(schema.shape.topic.description).toContain("One of: default_topic, alerts.");
-                expect(schema.shape.topic.description).toContain("Defaults to default_topic (NTFY_TOPIC)");
+                expect(shapeOf(schema).topic.description).toContain("One of: default_topic, alerts.");
+                expect(shapeOf(schema).topic.description).toContain("Defaults to default_topic (NTFY_TOPIC)");
             }
         });
 
