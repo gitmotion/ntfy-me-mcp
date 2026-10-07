@@ -47,7 +47,7 @@ A docs-only change should leave `build/` untouched. `git status` after `npm run 
 | `tests/validation.test.ts` | URL/topic validation and error sanitization |
 | `tests/*Schema.test.ts` | Zod schema behavior |
 | `tests/actions.test.ts`, `tests/markdown.test.ts` | URL → view-action and markdown detection |
-| `tests/stdout.test.ts` | Spawns `build/index.js` (run `npm run build` first): stdout hygiene, `./.env` loading, and dotenv option pinning |
+| `tests/stdout.test.ts` | Spawns `build/index.js` (run `npm run build` first): stdout hygiene, the unresolved `${input:…}` token exit, `./.env` loading, and dotenv option pinning |
 
 ## Local Validation
 

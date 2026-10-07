@@ -34,7 +34,7 @@ CI (`.github/workflows/build-and-test.yml`) runs `npm ci && npm run build && npm
 
 ```
 src/
-  index.ts                 startup: env loading, unresolved-token prompt, tool registration, stdio transport
+  index.ts                 startup: env loading, unresolved-token check (exits), tool registration, stdio transport
   schemas/                 Zod schemas, one per domain object or tool input
     notifyTool.schema.ts     ntfy_me input
     fetchTool.schema.ts      ntfy_me_fetch input
@@ -64,7 +64,7 @@ build/                     compiled output; COMMITTED to git (see below)
 This is a stdio MCP server, so **anything written to stdout corrupts the protocol stream.**
 - Log only through `Logger.getInstance()` (`logger.info|warn|error`), which writes to stderr.
 - Never call `console.*` directly (only `logger.ts` may), and never write a file-local logging helper.
-- Don't add anything that reads stdin outside the MCP transport (see #28 for an existing violation).
+- Don't add anything that reads stdin outside the MCP transport. Startup can't prompt: an unresolved `${input:…}` `NTFY_TOKEN` exits with an error instead (#28).
 
 ### Security-sensitive code
 `src/utils/validation.ts` and the request-building code in `toolHandlers.ts` / `messages.ts` are a security boundary. Tool arguments come from an LLM and may be prompt-injected.
@@ -97,7 +97,7 @@ The compiled `build/` directory is checked in. When you change anything under `s
   - `tests/validation.test.ts`: URL/topic rules and error sanitization
   - `tests/*Schema.test.ts`: schema behavior
   - `tests/actions.test.ts`, `tests/markdown.test.ts`: the detection utilities
-  - `tests/stdout.test.ts`: spawns the built server; stdout stays JSON-RPC-only, `./.env` is loaded (as UTF-8), and no `DOTENV_*` variable can override the client's env or change which file is read
+  - `tests/stdout.test.ts`: spawns the built server; stdout stays JSON-RPC-only, an unresolved `${input:…}` `NTFY_TOKEN` exits without touching stdin or stdout, `./.env` is loaded (as UTF-8), and no `DOTENV_*` variable can override the client's env or change which file is read
 - Any change to tool handlers, schemas, validation or fetch parsing needs new or updated tests in the matching file.
 - Tests are not type-checked by `npm run typecheck` (`tsconfig.json` includes only `src/`), so keep them type-correct by hand.
 
