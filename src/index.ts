@@ -52,10 +52,13 @@ const NTFY_ALLOW_URL_OVERRIDE = parseBooleanEnv(
 );
 
 async function initializeServer() {
+  // Validate before anything logs NTFY_URL (#30): a URL with embedded
+  // credentials must never reach stderr, which clients keep in log files.
+  let defaultTopic: string;
   try {
-    validateStartupConfig(NTFY_TOPIC, NTFY_URL);
+    defaultTopic = validateStartupConfig(NTFY_TOPIC, NTFY_URL).topic;
   } catch (error) {
-    logger.error((error as Error).message);
+    logger.error(error instanceof Error ? error.message : "Invalid NTFY_TOPIC or NTFY_URL. Exiting.");
     process.exit(1);
   }
 
@@ -88,7 +91,7 @@ async function initializeServer() {
     process.exit(1);
   }
   const allowedTopics =
-    topicsAllowlist.length > 0 ? [...new Set([NTFY_TOPIC.trim(), ...topicsAllowlist])] : [];
+    topicsAllowlist.length > 0 ? [...new Set([defaultTopic, ...topicsAllowlist])] : [];
   const destinationPolicy = {
     allowTopicOverride: NTFY_ALLOW_TOPIC_OVERRIDE,
     allowUrlOverride: NTFY_ALLOW_URL_OVERRIDE,

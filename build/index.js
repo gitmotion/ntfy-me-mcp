@@ -8,7 +8,7 @@ import fs from "fs";
 import { createFetchToolInputSchema, } from "./schemas/fetchTool.schema.js";
 import { createNotifyToolInputSchema, } from "./schemas/notifyTool.schema.js";
 import { parseBooleanEnv, parseTopicAllowlist } from "./utils/env.js";
-import { isUnresolvedInputReference, } from "./utils/validation.js";
+import { isUnresolvedInputReference, validateStartupConfig, } from "./utils/validation.js";
 import { createToolHandlers } from "./utils/toolHandlers.js";
 import { Logger } from "./utils/logger.js";
 const logger = Logger.getInstance();
@@ -36,8 +36,14 @@ const NTFY_TOKEN = HAS_UNRESOLVED_TOKEN_INPUT ? "" : RAW_NTFY_TOKEN;
 const NTFY_ALLOW_TOPIC_OVERRIDE = parseBooleanEnv(process.env.NTFY_ALLOW_TOPIC_OVERRIDE);
 const NTFY_ALLOW_URL_OVERRIDE = parseBooleanEnv(process.env.NTFY_ALLOW_URL_OVERRIDE);
 async function initializeServer() {
-    if (!NTFY_TOPIC) {
-        logger.error("NTFY_TOPIC environment variable is required. Please ensure it's added to your .env file or passed as an environment variable.");
+    // Validate before anything logs NTFY_URL (#30): a URL with embedded
+    // credentials must never reach stderr, which clients keep in log files.
+    let defaultTopic;
+    try {
+        defaultTopic = validateStartupConfig(NTFY_TOPIC, NTFY_URL).topic;
+    }
+    catch (error) {
+        logger.error(error instanceof Error ? error.message : "Invalid NTFY_TOPIC or NTFY_URL. Exiting.");
         process.exit(1);
     }
     // stdin and stdout are the MCP JSON-RPC channel, so the server can't prompt
@@ -62,7 +68,7 @@ async function initializeServer() {
         logger.error(`${error instanceof Error ? error.message : String(error)} Exiting.`);
         process.exit(1);
     }
-    const allowedTopics = topicsAllowlist.length > 0 ? [...new Set([NTFY_TOPIC.trim(), ...topicsAllowlist])] : [];
+    const allowedTopics = topicsAllowlist.length > 0 ? [...new Set([defaultTopic, ...topicsAllowlist])] : [];
     const destinationPolicy = {
         allowTopicOverride: NTFY_ALLOW_TOPIC_OVERRIDE,
         allowUrlOverride: NTFY_ALLOW_URL_OVERRIDE,

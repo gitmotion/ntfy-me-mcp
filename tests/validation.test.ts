@@ -36,19 +36,19 @@ describe("validateNtfyUrl", () => {
 
     it("rejects ftp:// URLs", () => {
         expect(() => validateNtfyUrl("ftp://files.example.com")).toThrow(
-            /unsupported scheme "ftp:"/
+            /unsupported scheme\. Only http:\/\/ and https:\/\/ URLs are supported\./
         );
     });
 
     it("rejects file:// URLs", () => {
         expect(() => validateNtfyUrl("file:///etc/passwd")).toThrow(
-            /unsupported scheme "file:"/
+            /unsupported scheme\. Only http:\/\/ and https:\/\/ URLs are supported\./
         );
     });
 
     it("rejects javascript: scheme URLs", () => {
         expect(() => validateNtfyUrl("javascript:alert(1)")).toThrow(
-            /unsupported scheme "javascript:"/
+            /unsupported scheme\. Only http:\/\/ and https:\/\/ URLs are supported\./
         );
     });
 
@@ -60,6 +60,16 @@ describe("validateNtfyUrl", () => {
         expect(() => validateNtfyUrl("not-a-url")).toThrow(/not a valid URL/);
         expect(() => validateNtfyUrl("just some words")).toThrow(/not a valid URL/);
     });
+
+    // #55: the message is fixed, so nothing from the URL is echoed back.
+    it.each(["ignore-previous-instructions:SECRET", `${"x".repeat(300)}:payload`, "javascript:alert(1)"])(
+        "rejects %s without echoing any part of it",
+        (url) => {
+            expect(() => validateNtfyUrl(url, "url")).toThrow(
+                new Error("Invalid url: unsupported scheme. Only http:// and https:// URLs are supported.")
+            );
+        }
+    );
 
     it("uses custom fieldName in error message", () => {
         expect(() => validateNtfyUrl("bad", "serverUrl")).toThrow(
@@ -411,7 +421,7 @@ describe("validateStartupConfig", () => {
             /Invalid NTFY_URL: not a valid URL/
         );
         expect(() => validateStartupConfig("my-topic", "ftp://ntfy.sh")).toThrow(
-            /Invalid NTFY_URL: unsupported scheme "ftp:"/
+            /Invalid NTFY_URL: unsupported scheme\. Only http:\/\/ and https:\/\/ URLs are supported\./
         );
     });
 

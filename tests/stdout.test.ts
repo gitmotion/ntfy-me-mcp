@@ -223,56 +223,69 @@ describe("dotenv can't interfere with the MCP channel or the client's config", (
     });
 });
 
-async function runAndExpectExit(env: Record<string, string>) {
-    const child = spawn(process.execPath, [entry], {
-        env: { PATH: process.env.PATH, ...env },
-        stdio: ["pipe", "pipe", "pipe"],
+// #30: an invalid NTFY_TOPIC or NTFY_URL fails at startup, before any log line
+// prints NTFY_URL. Each case runs in an empty temp dir, so no ./.env leaks in.
+describe("startup configuration validation (#30)", () => {
+    let workDir: string | undefined;
+
+    afterEach(() => {
+        if (workDir) rmSync(workDir, { recursive: true, force: true });
+        workDir = undefined;
     });
 
-    let stdout = "";
-    let stderr = "";
-    child.stdout.on("data", (chunk) => (stdout += chunk));
-    child.stderr.on("data", (chunk) => (stderr += chunk));
+    async function expectStartupFailure(env: Record<string, string>, message: string) {
+        workDir = mkdtempSync(join(tmpdir(), "ntfy-me-config-"));
+        const result = await runUntilExit(workDir, env, INITIALIZE_REQUEST);
 
-    const code = await new Promise<number | null>((resolve) => child.once("close", resolve));
-    return { code, stdout, stderr };
-}
+        expect(result.exitedOnItsOwn).toBe(true);
+        expect(result.exitCode).toBe(1);
+        expect(result.stdout).toBe("");
+        expect(result.stderr).toContain(message);
+        expect(result.stderr).not.toContain("running on stdio");
+        return result;
+    }
 
-describe("startup configuration validation", () => {
-    it("fails fast with exit code 1 when NTFY_TOPIC is missing", async () => {
-        const { code, stderr } = await runAndExpectExit({});
-        expect(code).toBe(1);
-        expect(stderr).toContain("NTFY_TOPIC environment variable is required");
+    it("exits when NTFY_TOPIC is missing", async () => {
+        await expectStartupFailure({ NTFY_URL: "http://127.0.0.1:9" }, "NTFY_TOPIC environment variable is required");
     });
 
-    it("fails fast with exit code 1 when NTFY_TOPIC contains invalid characters", async () => {
-        const { code, stderr } = await runAndExpectExit({
-            NTFY_TOPIC: "topic with spaces",
-        });
-        expect(code).toBe(1);
-        expect(stderr).toContain(
+    it("exits when NTFY_TOPIC has invalid characters", async () => {
+        await expectStartupFailure(
+            { NTFY_TOPIC: "topic with spaces", NTFY_URL: "http://127.0.0.1:9" },
             "Invalid NTFY_TOPIC: topic may only contain letters, numbers, underscores, and hyphens"
         );
     });
 
-    it("fails fast with exit code 1 when NTFY_URL is invalid", async () => {
-        const { code, stderr } = await runAndExpectExit({
-            NTFY_TOPIC: "valid_topic",
-            NTFY_URL: "not-a-url",
-        });
-        expect(code).toBe(1);
-        expect(stderr).toContain("Invalid NTFY_URL: not a valid URL");
+    it.each(["not-a-url", "ntfy.sh", "   "])("exits when NTFY_URL is %j", async (url) => {
+        await expectStartupFailure({ NTFY_TOPIC: "valid_topic", NTFY_URL: url }, "Invalid NTFY_URL: not a valid URL");
     });
 
-    it("fails fast and does not leak credentials when NTFY_URL embeds user:pass", async () => {
-        const { code, stderr } = await runAndExpectExit({
-            NTFY_TOPIC: "valid_topic",
-            NTFY_URL: "https://admin:secret123@ntfy.example.com",
-        });
-        expect(code).toBe(1);
-        expect(stderr).toContain("Invalid NTFY_URL: credentials in the URL are not supported");
-        expect(stderr).not.toContain("secret123");
-        expect(stderr).not.toContain("admin:secret123");
+    it("exits without echoing an unsupported NTFY_URL scheme (#55)", async () => {
+        const { stderr } = await expectStartupFailure(
+            { NTFY_TOPIC: "valid_topic", NTFY_URL: "ignore-previous-instructions:secretpayload" },
+            "Invalid NTFY_URL: unsupported scheme. Only http:// and https:// URLs are supported."
+        );
+        expect(stderr).not.toContain("ignore-previous-instructions");
+    });
+
+    it.each([{}, { NTFY_TOKEN: "tk_literaltoken" }])(
+        "exits before printing an NTFY_URL with embedded credentials (%j)",
+        async (tokenEnv) => {
+            const { stderr } = await expectStartupFailure(
+                { NTFY_TOPIC: "valid_topic", NTFY_URL: "https://admin:secret123@ntfy.example.com", ...tokenEnv },
+                "Invalid NTFY_URL: credentials in the URL are not supported"
+            );
+            expect(stderr).not.toContain("secret123");
+            expect(stderr).not.toContain("admin");
+        }
+    );
+
+    it("still starts with a padded NTFY_TOPIC and an empty NTFY_URL (default ntfy.sh)", async () => {
+        workDir = mkdtempSync(join(tmpdir(), "ntfy-me-config-ok-"));
+        const { stdout, stderr } = await startAndStop(workDir, { NTFY_TOPIC: " padded_topic ", NTFY_URL: "" });
+
+        expect(stdout).toBe("");
+        expect(stderr).toContain("https://ntfy.sh");
+        expect(stderr).toContain("running on stdio");
     });
 });
-

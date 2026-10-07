@@ -29,7 +29,7 @@ export function validateNtfyUrl(url: string, fieldName = "ntfyUrl"): void {
 
     if (parsed.protocol !== "https:" && parsed.protocol !== "http:") {
         throw new Error(
-            `Invalid ${fieldName}: unsupported scheme "${parsed.protocol}". Only http:// and https:// URLs are supported.`
+            `Invalid ${fieldName}: unsupported scheme. Only http:// and https:// URLs are supported.`
         );
     }
 }

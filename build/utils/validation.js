@@ -19,7 +19,7 @@ export function validateNtfyUrl(url, fieldName = "ntfyUrl") {
         throw new Error(`Invalid ${fieldName}: credentials in the URL are not supported. Use NTFY_TOKEN or the accessToken parameter instead.`);
     }
     if (parsed.protocol !== "https:" && parsed.protocol !== "http:") {
-        throw new Error(`Invalid ${fieldName}: unsupported scheme "${parsed.protocol}". Only http:// and https:// URLs are supported.`);
+        throw new Error(`Invalid ${fieldName}: unsupported scheme. Only http:// and https:// URLs are supported.`);
     }
 }
 /** ntfy shows at most this many action buttons per notification (#29). */
@@ -165,6 +165,7 @@ export function sanitizeErrorMessage(error, fallbackMessage) {
         if (error.message.startsWith("Invalid url:") ||
             error.message.startsWith("Invalid ntfyUrl:") ||
             error.message.startsWith("Invalid ntfy URL:") ||
+            error.message.startsWith("Invalid NTFY_URL:") ||
             error.message.startsWith("Invalid topic:") ||
             error.message.startsWith("Invalid ntfyTopic:") ||
             error.message.startsWith("Invalid NTFY_TOPIC:") ||
@@ -199,4 +200,21 @@ export function validateAccessToken(token) {
         throw new Error("Invalid access token: it may only contain printable ASCII characters without spaces.");
     }
     return trimmedToken;
+}
+/**
+ * Validates the startup environment configuration (NTFY_TOPIC and NTFY_URL).
+ * Fails fast with clear error messages before connecting or logging configuration.
+ *
+ * @param topic The NTFY_TOPIC environment variable
+ * @param url The NTFY_URL environment variable (defaults to https://ntfy.sh)
+ * @returns The validated topic and url
+ * @throws Error if topic is missing/invalid or url is invalid
+ */
+export function validateStartupConfig(topic, url = "https://ntfy.sh") {
+    if (!topic) {
+        throw new Error("NTFY_TOPIC environment variable is required. Please ensure it's added to your .env file or passed as an environment variable.");
+    }
+    const validatedTopic = validateNtfyTopic(topic, "NTFY_TOPIC");
+    validateNtfyUrl(url, "NTFY_URL");
+    return { topic: validatedTopic, url };
 }
