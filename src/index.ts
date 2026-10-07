@@ -73,7 +73,7 @@ async function initializeServer() {
   // for a token the client failed to substitute: say so and exit.
   if (HAS_UNRESOLVED_TOKEN_INPUT) {
     logger.error(
-      "NTFY_TOKEN is an unresolved ${input:…} reference: your MCP client passed the placeholder through instead of substituting your token. Set NTFY_TOKEN to the token itself (or to a reference your client resolves, such as an environment variable), or remove it for public topics. Exiting."
+      "NTFY_TOKEN is an unresolved ${input:…} reference: the server received the placeholder itself (from your MCP client config or ./.env) instead of your token. Set NTFY_TOKEN to the token itself (or to a reference your client resolves, such as an environment variable), or remove it for public topics. Exiting."
     );
     process.exit(1);
   }

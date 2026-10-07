@@ -2,14 +2,17 @@ import { spawn } from "node:child_process";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { afterEach, describe, expect, it } from "vitest";
 
 // Spawns the compiled server (CI runs `npm run build` before `npm test`).
-const entry = join(dirname(fileURLToPath(import.meta.url)), "..", "build", "index.js");
+const testsDir = dirname(fileURLToPath(import.meta.url));
+const entry = join(testsDir, "..", "build", "index.js");
+// `node --import` preload that reports any use of process.stdin on stderr.
+const STDIN_TRAP = ["--import", pathToFileURL(join(testsDir, "fixtures", "stdin-trap.mjs")).href];
 
-async function startAndStop(cwd: string, env: Record<string, string>) {
-    const child = spawn(process.execPath, [entry], {
+async function startAndStop(cwd: string, env: Record<string, string>, nodeArgs: string[] = []) {
+    const child = spawn(process.execPath, [...nodeArgs, entry], {
         cwd,
         env: { PATH: process.env.PATH, ...env },
         stdio: ["pipe", "pipe", "pipe"],
@@ -49,8 +52,13 @@ async function startAndStop(cwd: string, env: Record<string, string>) {
 
 // Starts the server like an MCP client does: writes the client's first message
 // and keeps stdin open. Waits up to 4 s for the server to exit on its own.
-async function runUntilExit(cwd: string, env: Record<string, string>, clientMessage: string) {
-    const child = spawn(process.execPath, [entry], {
+async function runUntilExit(
+    cwd: string,
+    env: Record<string, string>,
+    clientMessage: string,
+    nodeArgs: string[] = []
+) {
+    const child = spawn(process.execPath, [...nodeArgs, entry], {
         cwd,
         env: { PATH: process.env.PATH, ...env },
         stdio: ["pipe", "pipe", "pipe"],
@@ -63,6 +71,8 @@ async function runUntilExit(cwd: string, env: Record<string, string>, clientMess
     child.stdout.on("data", (chunk) => (stdout += chunk));
     child.stderr.on("data", (chunk) => (stderr += chunk));
     const closed = new Promise<void>((resolve) => child.once("close", () => resolve()));
+    // The server may exit before the write lands; that EPIPE isn't the test's concern.
+    child.stdin.on("error", () => {});
     child.stdin.write(clientMessage);
 
     let timer: NodeJS.Timeout | undefined;
@@ -101,28 +111,32 @@ describe("an unresolved ${input:…} NTFY_TOKEN", () => {
         const result = await runUntilExit(
             workDir,
             { NTFY_TOPIC: "input_ref", NTFY_URL: "http://127.0.0.1:9", NTFY_TOKEN: "${input:ntfy_token}" },
-            INITIALIZE_REQUEST
+            INITIALIZE_REQUEST,
+            STDIN_TRAP
         );
 
         expect(result.stdout).toBe("");
         expect(result.exitedOnItsOwn).toBe(true);
         expect(result.exitCode).toBe(1);
         expect(result.stderr).toContain("NTFY_TOKEN is an unresolved ${input:…} reference");
+        expect(result.stderr).not.toContain("STDIN_TOUCHED");
         expect(result.stderr).not.toContain("running on stdio");
     });
 
-    it("leaves a real NTFY_TOKEN alone", async () => {
+    it("leaves a real NTFY_TOKEN alone (and the stdin trap sees the MCP transport read stdin)", async () => {
         workDir = mkdtempSync(join(tmpdir(), "ntfy-me-real-token-"));
 
-        const { stdout, stderr } = await startAndStop(workDir, {
-            NTFY_TOPIC: "real_token",
-            NTFY_URL: "http://127.0.0.1:9",
-            NTFY_TOKEN: "tk_literaltoken",
-        });
+        const { stdout, stderr } = await startAndStop(
+            workDir,
+            { NTFY_TOPIC: "real_token", NTFY_URL: "http://127.0.0.1:9", NTFY_TOKEN: "tk_literaltoken" },
+            STDIN_TRAP
+        );
 
         expect(stdout).toBe("");
         expect(stderr).toContain("Using configured access token for http://127.0.0.1:9/real_token");
         expect(stderr).not.toContain("tk_literaltoken");
+        // Control for the test above: the trap does detect a real reader.
+        expect(stderr).toContain("STDIN_TOUCHED");
     });
 });
 
