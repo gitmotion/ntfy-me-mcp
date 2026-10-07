@@ -141,6 +141,8 @@ The server includes intelligent features like automatic URL detection for creati
 
 Choose the config shape that matches your client. All examples below use `NTFY_TOPIC` as the required variable and keep the optional auth settings commented out until you need them.
 
+> **Tested with Ontheia:** [Ontheia](https://ontheia.ai), a self-hosted, open-source AI agent platform, reports that ntfy-me-mcp works with it and lists it among its [compatible MCP servers](https://docs.ontheia.ai/en/getting-started/03_compatible-mcp-servers/).
+
 > **Requirements:** Node.js 24 or newer for the npx, global and local options. CI and the Docker image use Node 24. Node 22 and earlier aren't supported (npm warns `EBADENGINE`). The Docker option needs only Docker.
 
 ### Configuration Examples
