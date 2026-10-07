@@ -379,15 +379,6 @@ npm start
         </details>
       </td>
     </tr>
-    <tr>
-      <td valign="top"><b>MCP Marketplace — Smithery</b><br/>One-command install for Claude Desktop via <a href="https://smithery.ai/server/@gitmotion/ntfy-me-mcp">Smithery</a>.</td>
-      <td>
-        <details>
-          <summary>Show command</summary>
-          <pre><code>npx -y @smithery/cli install @gitmotion/ntfy-me-mcp --client claude</code></pre>
-        </details>
-      </td>
-    </tr>
   </tbody>
 </table>
 
