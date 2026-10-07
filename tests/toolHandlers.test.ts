@@ -386,6 +386,19 @@ describe("createToolHandlers", () => {
             ]);
         });
 
+        it("compares against a trimmed NTFY_TOPIC for library callers", async () => {
+            mockFetch.mockResolvedValueOnce(createResponse());
+
+            const { handleNotifyTool } = buildHandlers({
+                getDefaultTopic: () => " default_topic ",
+                allowedTopics: ["alerts"],
+            });
+            const result = await handleNotifyTool({ title: "T", message: "m", topic: "default_topic", priority: "default" });
+
+            expect(result.isError).toBeUndefined();
+            expect(mockFetch.mock.calls[0][0]).toBe("https://ntfy.sh/default_topic");
+        });
+
         it("an empty allowlist keeps the #21 lock", async () => {
             mockFetch.mockResolvedValueOnce(createResponse());
 

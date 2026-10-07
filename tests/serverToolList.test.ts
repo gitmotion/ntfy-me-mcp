@@ -36,11 +36,13 @@ function spawnServer(extraEnv: Record<string, string>) {
 // Initializes an MCP session, sends `requests` (ids from 2), and returns the responses by id.
 async function exchange(extraEnv: Record<string, string>, requests: Array<{ method: string; params?: object }>) {
     const child = spawnServer(extraEnv);
+    const closed = new Promise<void>((resolve) => child.once("close", () => resolve()));
+    let stderr = "";
+    child.stderr.on("data", (chunk) => (stderr += chunk));
+    let responses: Map<number, JsonRpcResponse>;
 
     try {
-        let stderr = "";
-        child.stderr.on("data", (chunk) => (stderr += chunk));
-        const responses = await new Promise<Map<number, JsonRpcResponse>>((resolve, reject) => {
+        responses = await new Promise<Map<number, JsonRpcResponse>>((resolve, reject) => {
             const responses = new Map<number, JsonRpcResponse>();
             let buffer = "";
             const timer = setTimeout(() => reject(new Error("missing JSON-RPC responses")), 4000);
@@ -67,10 +69,14 @@ async function exchange(extraEnv: Record<string, string>, requests: Array<{ meth
             send({ jsonrpc: "2.0", method: "notifications/initialized" });
             requests.forEach((request, index) => send({ jsonrpc: "2.0", id: index + 2, ...request }));
         });
-        return { responses, stderr };
     } finally {
         child.kill();
+        // Read stderr only after the pipes close, so log lines written just
+        // before the last response can't be missed.
+        await closed;
     }
+
+    return { responses, stderr };
 }
 
 async function listTools(extraEnv: Record<string, string>) {
@@ -180,6 +186,14 @@ describe("server tool list and the topic allowlist (#34)", () => {
             expect(result?.content?.[0].text).toMatch(/^MCP error -32602: Input validation error/);
             expect(result?.content?.[0].text).not.toContain("unfollowed_topic");
         }
+    });
+
+    it("fails at startup when NTFY_TOPICS_ALLOWLIST lists no topics", async () => {
+        const { exitCode, stdout, stderr } = await startupFailure({ NTFY_TOPICS_ALLOWLIST: " , ," });
+
+        expect(exitCode).toBe(1);
+        expect(stdout).toBe("");
+        expect(stderr).toContain("Invalid NTFY_TOPICS_ALLOWLIST: no topics listed.");
     });
 
     it("fails at startup on an invalid allowlist entry, naming the variable", async () => {
