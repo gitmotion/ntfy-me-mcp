@@ -128,9 +128,16 @@ describe("an unresolved ${input:…} NTFY_TOKEN", () => {
 
     // #46: other placeholders the client didn't substitute fail the same way,
     // instead of being sent as a bearer token that 401s every call.
-    it.each(["${env:NTFY_TOKEN}", "${NTFY_TOKEN}", "${input:}", "tk_abc${SUFFIX}"])(
+    // Each case lists text from the value that must not be echoed: the whole
+    // value, and any part of it that isn't also in the fixed message.
+    it.each([
+        ["${env:NTFY_TOKEN}", ["env:NTFY_TOKEN"]],
+        ["${NTFY_TOKEN}", ["${NTFY_TOKEN}"]],
+        ["${input:}", ["${input:}"]],
+        ["tk_abc${SUFFIX}", ["tk_abc", "SUFFIX"]],
+    ])(
         "exits at startup for NTFY_TOKEN=%j, writing nothing to stdout and leaving stdin unread",
-        async (placeholder) => {
+        async (placeholder, notEchoed) => {
             workDir = mkdtempSync(join(tmpdir(), "ntfy-me-placeholder-"));
 
             const result = await runUntilExit(
@@ -144,7 +151,12 @@ describe("an unresolved ${input:…} NTFY_TOKEN", () => {
             expect(result.exitedOnItsOwn).toBe(true);
             expect(result.exitCode).toBe(1);
             expect(result.stderr).toContain("NTFY_TOKEN contains an unresolved ${…} placeholder");
-            expect(result.stderr).not.toContain(placeholder);
+            expect(result.stderr).toContain(
+                "Set NTFY_TOKEN to the token itself (or to a reference your client resolves), or remove it for public topics."
+            );
+            for (const fragment of [placeholder, ...notEchoed]) {
+                expect(result.stderr).not.toContain(fragment);
+            }
             expect(result.stderr).toContain(STDIN_TRAP_LOADED);
             expect(result.stderr).not.toContain(STDIN_TOUCHED);
             expect(result.stderr).not.toContain("running on stdio");
