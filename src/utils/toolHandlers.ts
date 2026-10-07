@@ -52,7 +52,7 @@ export function createToolHandlers(config: ToolHandlerConfig = {}) {
         try {
             const url = customUrl || getDefaultUrl();
             const topic = resolveTopic(customTopic);
-            const token = accessToken || getDefaultToken();
+            const token = accessToken?.trim() || getDefaultToken();
 
             validateNtfyUrl(url, "url");
 
@@ -161,7 +161,7 @@ export function createToolHandlers(config: ToolHandlerConfig = {}) {
         try {
             const url = customUrl || getDefaultUrl();
             const topic = resolveTopic(customTopic);
-            const token = accessToken || getDefaultToken();
+            const token = accessToken?.trim() || getDefaultToken();
             const sinceSetting = since === null ? undefined : since || "10m";
 
             validateNtfyUrl(url, "url");
