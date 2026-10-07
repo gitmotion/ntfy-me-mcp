@@ -1,3 +1,5 @@
+import { execFileSync } from "node:child_process";
+import { randomBytes } from "node:crypto";
 import { existsSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -23,17 +25,41 @@ export default async function setup(project: TestProject) {
     }
     await assertDockerAvailable();
 
-    const open = `ntfy-me-e2e-open-${process.pid}`;
-    const auth = `ntfy-me-e2e-auth-${process.pid}`;
+    // Random names: pids repeat across CI containers sharing one Docker daemon.
+    const run = randomBytes(4).toString("hex");
+    const open = `ntfy-me-e2e-open-${run}`;
+    const auth = `ntfy-me-e2e-auth-${run}`;
+
+    // Ctrl-C / SIGTERM skip vitest's teardown, so remove the containers here.
+    const removeContainersNow = () => {
+        try {
+            execFileSync("docker", ["rm", "-f", open, auth], { stdio: "ignore" });
+        } catch {
+            // already gone
+        }
+    };
+    process.once("SIGINT", removeContainersNow);
+    process.once("SIGTERM", removeContainersNow);
+    const stopAll = async () => {
+        process.off("SIGINT", removeContainersNow);
+        process.off("SIGTERM", removeContainersNow);
+        await Promise.all([stopNtfy(open), stopNtfy(auth)]);
+    };
 
     try {
-        const [ntfyUrl, authNtfyUrl] = await Promise.all([
+        // allSettled, so a failed start can't leave the other one starting after cleanup.
+        const started = await Promise.allSettled([
             startNtfy(open),
             startNtfy(auth, {
                 NTFY_AUTH_FILE: "/tmp/auth.db",
                 NTFY_AUTH_DEFAULT_ACCESS: "deny-all",
             }),
         ]);
+        const failed = started.find((result) => result.status === "rejected");
+        if (failed) {
+            throw failed.reason;
+        }
+        const [ntfyUrl, authNtfyUrl] = started.map((result) => (result as PromiseFulfilledResult<string>).value);
 
         await ntfyExec(auth, { NTFY_PASSWORD: "e2e-password" }, "user", "add", "--role=admin", "e2eadmin");
         const tokenOutput = await ntfyExec(auth, {}, "token", "add", "e2eadmin");
@@ -46,11 +72,9 @@ export default async function setup(project: TestProject) {
         project.provide("authNtfyUrl", authNtfyUrl);
         project.provide("authToken", authToken);
     } catch (error) {
-        await Promise.all([stopNtfy(open), stopNtfy(auth)]);
+        await stopAll();
         throw error;
     }
 
-    return async () => {
-        await Promise.all([stopNtfy(open), stopNtfy(auth)]);
-    };
+    return stopAll;
 }

@@ -1,3 +1,5 @@
+import { createServer } from "node:http";
+import type { AddressInfo } from "node:net";
 import { afterEach, describe, expect, inject, it } from "vitest";
 import { callTool, connect, type McpSession, pollTopic, uniqueTopic } from "./helpers.js";
 
@@ -7,10 +9,12 @@ describe("ntfy_me against a real ntfy server", () => {
     let session: McpSession | undefined;
 
     afterEach(async () => {
-        // stdout must carry only JSON-RPC for the whole session.
-        expect(session?.errors ?? []).toEqual([]);
-        await session?.close();
+        // Close first: stdout is parsed until the server exits, and it must
+        // have carried only JSON-RPC for the whole session.
+        const current = session;
         session = undefined;
+        await current?.close();
+        expect(current?.errors ?? []).toEqual([]);
     });
 
     it("publishes title, message, priority and tags", async () => {
@@ -75,6 +79,17 @@ describe("ntfy_me against a real ntfy server", () => {
         ]);
     });
 
+    it("sends a plain message as plain text (no markdown, no actions)", async () => {
+        const topic = uniqueTopic("e2e_plain");
+        session = await connect({ NTFY_URL: ntfyUrl, NTFY_TOPIC: topic });
+
+        await callTool(session, "ntfy_me", { title: "Plain", message: "nothing special here" });
+
+        const [message] = await pollTopic(ntfyUrl, topic);
+        expect(message.content_type).toBeUndefined();
+        expect(message.actions).toBeUndefined();
+    });
+
     it("rejects invalid arguments with an MCP validation error and sends nothing", async () => {
         const topic = uniqueTopic("e2e_invalid");
         session = await connect({ NTFY_URL: ntfyUrl, NTFY_TOPIC: topic });
@@ -84,17 +99,30 @@ describe("ntfy_me against a real ntfy server", () => {
         expect(result.isError).toBe(true);
         expect(result.content[0].text).toMatch(/^MCP error -32602: Input validation error/);
         expect(result.content[0].text).not.toContain("missing title");
+        expect(result.content[0].text).not.toContain("urgent");
         expect(await pollTopic(ntfyUrl, topic)).toEqual([]);
     });
 
-    it("reports a server that refuses the connection without leaking details", async () => {
+    it("reports a server that refuses the connection with a fixed message, leaking no details", async () => {
+        // A port that was free a moment ago, so the connection is really refused
+        // (port 9 would be blocked by fetch itself before any connection attempt).
+        const closedPort = await new Promise<number>((resolve) => {
+            const probe = createServer();
+            probe.listen(0, "127.0.0.1", () => {
+                const { port } = probe.address() as AddressInfo;
+                probe.close(() => resolve(port));
+            });
+        });
         const topic = uniqueTopic("e2e_down");
-        session = await connect({ NTFY_URL: "http://127.0.0.1:9", NTFY_TOPIC: topic });
+        session = await connect({ NTFY_URL: `http://127.0.0.1:${closedPort}`, NTFY_TOPIC: topic });
 
         const result = await callTool(session, "ntfy_me", { title: "T", message: "m" });
 
         expect(result.isError).toBe(true);
-        expect(result.structuredContent).toMatchObject({ success: false });
-        expect(session.stderr()).toContain("Failed to send ntfy notification");
+        expect(result.content[0].text).toBe(
+            "Failed to send ntfy notification: could not connect to the ntfy server (ECONNREFUSED)"
+        );
+        expect(JSON.stringify(result)).not.toMatch(/\bat \S+ \(|node:internal/);
+        expect(session.stderr()).toContain("ECONNREFUSED");
     });
 });

@@ -11,9 +11,12 @@ describe("destination control (#21, #34) against real ntfy servers", () => {
     let session: McpSession | undefined;
 
     afterEach(async () => {
-        expect(session?.errors ?? []).toEqual([]);
-        await session?.close();
+        // Close first: stdout is parsed until the server exits, and it must
+        // have carried only JSON-RPC for the whole session.
+        const current = session;
         session = undefined;
+        await current?.close();
+        expect(current?.errors ?? []).toEqual([]);
     });
 
     it("by default offers no topic or url, and a stray one still lands on NTFY_TOPIC", async () => {

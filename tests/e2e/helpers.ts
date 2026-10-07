@@ -1,4 +1,5 @@
 import { randomBytes } from "node:crypto";
+import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -18,13 +19,18 @@ export interface McpSession {
 
 /**
  * Starts build/index.js the way an MCP client does (stdio), with only the
- * given env (plus PATH), from a temp directory so no local .env applies.
+ * given env (plus PATH), from a fresh empty directory so no .env applies.
  */
 export async function connect(env: Record<string, string>): Promise<McpSession> {
+    if (!env.NTFY_URL) {
+        // Without it the server would default to the public ntfy.sh.
+        throw new Error("e2e sessions need an explicit NTFY_URL");
+    }
+    const cwd = mkdtempSync(join(tmpdir(), "ntfy-me-e2e-"));
     const transport = new StdioClientTransport({
         command: process.execPath,
         args: [entry],
-        cwd: tmpdir(),
+        cwd,
         env: { PATH: process.env.PATH ?? "", ...env },
         stderr: "pipe",
     });
@@ -40,7 +46,10 @@ export async function connect(env: Record<string, string>): Promise<McpSession> 
         client,
         stderr: () => stderr,
         errors,
-        close: () => client.close(),
+        close: async () => {
+            await client.close();
+            rmSync(cwd, { recursive: true, force: true });
+        },
     };
 }
 

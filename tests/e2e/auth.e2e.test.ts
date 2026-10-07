@@ -9,9 +9,12 @@ describe("authentication against a deny-all ntfy server", () => {
     let session: McpSession | undefined;
 
     afterEach(async () => {
-        expect(session?.errors ?? []).toEqual([]);
-        await session?.close();
+        // Close first: stdout is parsed until the server exits, and it must
+        // have carried only JSON-RPC for the whole session.
+        const current = session;
         session = undefined;
+        await current?.close();
+        expect(current?.errors ?? []).toEqual([]);
     });
 
     it("publishes and fetches with NTFY_TOKEN, and never logs the token", async () => {
@@ -41,6 +44,21 @@ describe("authentication against a deny-all ntfy server", () => {
         expect(sent.structuredContent?.error).toMatch(/^Authentication failed when sending notification\./);
         expect(fetched.isError).toBe(true);
         expect(fetched.structuredContent?.error).toMatch(/^Authentication failed when fetching messages\./);
+        expect(await pollTopic(authNtfyUrl, topic, authToken)).toEqual([]);
+    });
+
+    it("returns the authentication error for a wrong token (401)", async () => {
+        const topic = uniqueTopic("e2e_badtoken");
+        session = await connect({
+            NTFY_URL: authNtfyUrl,
+            NTFY_TOPIC: topic,
+            NTFY_TOKEN: "tk_000000000000000000000000000",
+        });
+
+        const sent = await callTool(session, "ntfy_me", { title: "T", message: "m" });
+
+        expect(sent.isError).toBe(true);
+        expect(sent.structuredContent?.error).toMatch(/^Authentication failed when sending notification\./);
         expect(await pollTopic(authNtfyUrl, topic, authToken)).toEqual([]);
     });
 

@@ -16,18 +16,23 @@ function fetchedTitles(result: { structuredContent?: Record<string, unknown> }):
 describe("ntfy_me_fetch against a real ntfy server", () => {
     const topic = uniqueTopic("e2e_fetch");
     let deploy: NtfyMessage;
+    // Published in this order: routine, deploy, outage, French.
     let session: McpSession | undefined;
 
     beforeAll(async () => {
         await publishDirect(ntfyUrl, { topic, title: "routine", message: "nightly backup ok", priority: 2, tags: ["backup"] });
         deploy = await publishDirect(ntfyUrl, { topic, title: "🚀 deploy", message: "v1.5.0 is live", priority: 4, tags: ["deploy"] });
         await publishDirect(ntfyUrl, { topic, title: "outage", message: "api down", priority: 5, tags: ["fire", "deploy"] });
+        await publishDirect(ntfyUrl, { topic, title: "French", message: "mise en production", priority: 3, tags: ["déploiement"] });
     });
 
     afterEach(async () => {
-        expect(session?.errors ?? []).toEqual([]);
-        await session?.close();
+        // Close first: stdout is parsed until the server exits, and it must
+        // have carried only JSON-RPC for the whole session.
+        const current = session;
         session = undefined;
+        await current?.close();
+        expect(current?.errors ?? []).toEqual([]);
     });
 
     it("returns every cached message on NTFY_TOPIC", async () => {
@@ -36,13 +41,16 @@ describe("ntfy_me_fetch against a real ntfy server", () => {
         const result = await callTool(session, "ntfy_me_fetch", { since: "all" });
 
         expect(result.isError).toBeFalsy();
-        expect(result.structuredContent?.messageCount).toBe(3);
-        expect(fetchedTitles(result)).toEqual(["outage", "routine", "🚀 deploy"].sort());
+        expect(result.structuredContent?.messageCount).toBe(4);
+        expect(fetchedTitles(result)).toEqual(["French", "outage", "routine", "🚀 deploy"].sort());
     });
 
     it.each([
         ["priorities", { priorities: ["max"] }, ["outage"]],
+        ["two priorities", { priorities: ["max", "low"] }, ["outage", "routine"]],
         ["tags", { tags: ["deploy"] }, ["outage", "🚀 deploy"]],
+        ["two tags (all must match)", { tags: ["deploy", "fire"] }, ["outage"]],
+        ["a non-ASCII tag (#18)", { tags: ["déploiement"] }, ["French"]],
         ["a non-ASCII title (#18)", { messageTitle: "🚀 deploy" }, ["🚀 deploy"]],
         ["message text", { messageText: "nightly backup ok" }, ["routine"]],
     ] as const)("filters by %s", async (_label, filters, expected) => {
@@ -67,6 +75,6 @@ describe("ntfy_me_fetch against a real ntfy server", () => {
 
         const result = await callTool(session, "ntfy_me_fetch", { since: deploy.id });
 
-        expect(fetchedTitles(result)).toEqual(["outage"]);
+        expect(fetchedTitles(result)).toEqual(["French", "outage"]);
     });
 });

@@ -7,11 +7,16 @@ const execFileAsync = promisify(execFile);
 export const NTFY_IMAGE = process.env.NTFY_E2E_IMAGE || "binwiederhier/ntfy:v2.28.0";
 
 // Every request in a run comes from one visitor (the Docker gateway), so lift
-// ntfy's per-visitor rate limits for the test containers.
+// ntfy's per-visitor limits for the test containers. Each test uses fresh
+// topics, so the new-topic limit (100, then 1/min) matters too; 0 disables it.
 const NO_RATE_LIMITS = {
     NTFY_VISITOR_REQUEST_LIMIT_BURST: "100000",
     NTFY_VISITOR_MESSAGE_DAILY_LIMIT: "100000",
+    NTFY_VISITOR_TOPIC_CREATION_LIMIT_BURST: "0",
 };
+
+/** Every e2e container carries this label, so leftovers are easy to find and remove. */
+export const E2E_LABEL = "ntfy-me-e2e";
 
 async function docker(...args: string[]): Promise<string> {
     const { stdout } = await execFileAsync("docker", args);
@@ -30,9 +35,11 @@ export async function assertDockerAvailable(): Promise<void> {
 
 /** Starts `ntfy serve` on a free loopback port and waits until it's healthy. */
 export async function startNtfy(name: string, env: Record<string, string> = {}): Promise<string> {
-    await docker("rm", "-f", name).catch(() => undefined);
     const envArgs = Object.entries({ ...NO_RATE_LIMITS, ...env }).flatMap(([key, value]) => ["-e", `${key}=${value}`]);
-    await docker("run", "-d", "--rm", "--name", name, "-p", "127.0.0.1::80", ...envArgs, NTFY_IMAGE, "serve");
+    await docker(
+        "run", "-d", "--rm", "--name", name, "--label", E2E_LABEL,
+        "-p", "127.0.0.1::80", ...envArgs, NTFY_IMAGE, "serve"
+    );
 
     const mapping = await docker("port", name, "80/tcp");
     const port = mapping.split("\n")[0].split(":").pop();
