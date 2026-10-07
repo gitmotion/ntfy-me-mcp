@@ -22,6 +22,45 @@ export function validateNtfyUrl(url, fieldName = "ntfyUrl") {
         throw new Error(`Invalid ${fieldName}: unsupported scheme "${parsed.protocol}". Only http:// and https:// URLs are supported.`);
     }
 }
+/** ntfy shows at most this many action buttons per notification (#29). */
+export const NTFY_MAX_ACTIONS = 3;
+/**
+ * Validates a view action's link: http(s) only, no embedded credentials (#29).
+ * The messages are fixed, so nothing the agent sent is echoed back.
+ *
+ * @param url The link the action button opens
+ * @throws Error with an "Invalid action url:" message if the link isn't allowed
+ */
+export function validateActionUrl(url) {
+    let parsed;
+    try {
+        parsed = new URL(url);
+    }
+    catch {
+        throw new Error("Invalid action url: not a valid URL. Only http:// and https:// links are supported.");
+    }
+    if (parsed.protocol !== "https:" && parsed.protocol !== "http:") {
+        throw new Error("Invalid action url: only http:// and https:// links are supported.");
+    }
+    if (parsed.username || parsed.password) {
+        throw new Error("Invalid action url: links with embedded credentials are not supported.");
+    }
+}
+/**
+ * Enforces the view-action rules at request-building time, the same rules the
+ * tool schema applies, so callers that bypass the schema can't send more.
+ *
+ * @param actions The agent-supplied view actions
+ * @throws Error with an "Invalid actions:" or "Invalid action url:" message
+ */
+export function validateViewActions(actions) {
+    if (actions.length > NTFY_MAX_ACTIONS) {
+        throw new Error(`Invalid actions: at most ${NTFY_MAX_ACTIONS} view actions are allowed per notification.`);
+    }
+    for (const action of actions) {
+        validateActionUrl(action.url);
+    }
+}
 /**
  * Checks whether two URLs share an origin (scheme, host and port).
  * Used to decide whether the configured NTFY_TOKEN may be sent to a URL.
@@ -130,6 +169,8 @@ export function sanitizeErrorMessage(error, fallbackMessage) {
             error.message.startsWith("Invalid ntfyTopic:") ||
             error.message.startsWith("Invalid NTFY_TOPIC:") ||
             error.message.startsWith("Invalid access token:") ||
+            error.message.startsWith("Invalid action url:") ||
+            error.message.startsWith("Invalid actions:") ||
             error.message.startsWith("Authentication failed when sending notification.") ||
             error.message.startsWith("Authentication failed when fetching messages.") ||
             error.message.startsWith("Failed to send ntfy notification. Status code:") ||

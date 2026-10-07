@@ -109,4 +109,37 @@ describe("tool input schemas and destination overrides (#21)", () => {
             expect(Object.keys(schema.shape)).not.toContain("topic");
         });
     });
+
+    // #29: the schemas the server registers (not only the base schema) cap
+    // actions at ntfy's 3 and accept only http(s) links, under every policy.
+    describe("view actions (#29)", () => {
+        const action = (url = "https://example.com/1") => ({ action: "view", label: "Open", url });
+        const POLICIES: [string, Parameters<typeof createNotifyToolInputSchema>[0]][] = [
+            ["locked", LOCKED],
+            ["topic override", { allowTopicOverride: true, allowUrlOverride: false }],
+            ["url override", { allowTopicOverride: false, allowUrlOverride: true }],
+            ["allowlist", { ...LOCKED, allowedTopics: ["default_topic", "alerts"] }],
+        ];
+
+        it.each(POLICIES)("ntfy_me (%s) accepts 3 actions and rejects 4", (_name, policy) => {
+            const schema = createNotifyToolInputSchema(policy);
+
+            expect(schema.safeParse({ title: "T", message: "m", actions: [action(), action(), action()] }).success).toBe(true);
+            expect(schema.safeParse({ title: "T", message: "m", actions: [action(), action(), action(), action()] }).success).toBe(false);
+        });
+
+        it.each(POLICIES)("ntfy_me (%s) rejects a non-http(s) link without echoing it", (_name, policy) => {
+            const schema = createNotifyToolInputSchema(policy);
+            const result = schema.safeParse({
+                title: "T",
+                message: "m",
+                actions: [action("ignore-previous-instructions:SECRET")],
+            });
+
+            expect(result.success).toBe(false);
+            const messages = result.error?.issues.map((issue) => issue.message).join(" ") ?? "";
+            expect(messages).toContain("Invalid action url: only http:// and https:// links are supported.");
+            expect(messages).not.toContain("ignore-previous-instructions");
+        });
+    });
 });

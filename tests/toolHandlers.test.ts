@@ -218,6 +218,68 @@ describe("createToolHandlers", () => {
         });
     });
 
+    // #29: request building enforces the same action rules as the schema, so a
+    // direct caller (not via the MCP SDK) can't send what the schema rejects.
+    describe("view actions (#29)", () => {
+        const action = (url = "https://example.com/1") => ({ action: "view" as const, label: "Open", url });
+
+        it("rejects more than 3 actions before sending anything", async () => {
+            const { handleNotifyTool } = buildHandlers();
+            const result = await handleNotifyTool({
+                title: "T",
+                message: "m",
+                topic: undefined,
+                priority: "default",
+                actions: [action(), action(), action(), action()],
+            });
+
+            expect(result.isError).toBe(true);
+            expect(result.structuredContent).toEqual({
+                success: false,
+                error: "Invalid actions: at most 3 view actions are allowed per notification.",
+            });
+            expect(mockFetch).not.toHaveBeenCalled();
+        });
+
+        it.each(["javascript:alert(1)", "https://alice:SECRET@example.com"])(
+            "rejects the action link %s before sending anything, with a fixed message",
+            async (url) => {
+                const { handleNotifyTool } = buildHandlers();
+                const result = await handleNotifyTool({
+                    title: "T",
+                    message: "m",
+                    topic: undefined,
+                    priority: "default",
+                    actions: [action(), action(url)],
+                });
+
+                expect(result.isError).toBe(true);
+                expect(result.structuredContent).toMatchObject({ success: false });
+                expect(String(result.structuredContent?.error)).toMatch(/^Invalid action url: /);
+                expect(String(result.structuredContent?.error)).not.toContain("SECRET");
+                expect(String(result.structuredContent?.error)).not.toContain("alert");
+                expect(mockFetch).not.toHaveBeenCalled();
+            }
+        );
+
+        it("sends 3 valid actions", async () => {
+            mockFetch.mockResolvedValueOnce(createResponse());
+
+            const { handleNotifyTool } = buildHandlers();
+            const result = await handleNotifyTool({
+                title: "T",
+                message: "m",
+                topic: undefined,
+                priority: "default",
+                actions: [action("https://example.com/1"), action("http://example.com/2"), action("https://example.com/3")],
+            });
+
+            const headers = mockFetch.mock.calls[0][1]?.headers as Record<string, string>;
+            expect(result.isError).toBeUndefined();
+            expect(JSON.parse(headers["X-Actions"])).toHaveLength(3);
+        });
+    });
+
     describe("topic override (#21)", () => {
         it("ignores a per-call topic and uses NTFY_TOPIC when overrides are not allowed (default)", async () => {
             mockFetch.mockResolvedValueOnce(createResponse());

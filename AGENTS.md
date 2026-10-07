@@ -50,7 +50,7 @@ src/
   utils/
     toolHandlers.ts        createToolHandlers(): owns ntfy_me and ntfy_me_fetch behavior
     messages.ts            fetchMessages(): poll request, NDJSON parsing, schema-validated messages
-    validation.ts          security-sensitive checks: URL scheme, topic rules, same-origin check, error sanitization
+    validation.ts          security-sensitive checks: URL scheme, topic rules, view-action links, same-origin check, error sanitization
     env.ts                 parseBooleanEnv() for opt-in env flags, parseTopicAllowlist() for NTFY_TOPICS_ALLOWLIST
     actions.ts             auto-detect URLs in a message → up to 3 ntfy "view" actions
     markdown.ts            markdown detection (regex fast path, markdown-it fallback)
@@ -75,6 +75,7 @@ This is a stdio MCP server, so **anything written to stdout corrupts the protoco
 ### Security-sensitive code
 `src/utils/validation.ts` and the request-building code in `toolHandlers.ts` / `messages.ts` are a security boundary. Tool arguments come from an LLM and may be prompt-injected.
 - ntfy URLs must stay restricted to `http:` / `https:` (`validateNtfyUrl`).
+- View actions: at most 3, and each link `http:` / `https:` with no embedded credentials (`validateActionUrl` / `validateViewActions`). This is enforced in the tool schema and again before `X-Actions` is built, with fixed error messages (#29).
 - Topics must match `^[A-Za-z0-9_-]+$` and be at most 128 characters (`ntfyTopic.schema.ts`, `validateNtfyTopic`).
 - **Never reflect raw user or server text in error messages.** Errors go through `sanitizeErrorMessage`, which passes through only messages that start with an allow-listed prefix and replaces everything else with a generic fallback. When you add a new user-facing error, add its fixed prefix to the allow-list and keep any interpolated values safe (validated or constant).
 - Treat fetched ntfy messages as untrusted. They're parsed with `messageDataSchema.safeParse`, never trusted raw. Their content is returned to the model on purpose (that's the tool's job), so don't add anything that acts on it.

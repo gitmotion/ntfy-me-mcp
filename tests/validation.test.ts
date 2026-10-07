@@ -7,6 +7,7 @@ import {
     validateNtfyTopic,
     validateNtfyUrl,
     sanitizeErrorMessage,
+    validateActionUrl,
 } from "../src/utils/validation.js";
 import {
     createOptionalNtfyTopicSchema,
@@ -73,7 +74,45 @@ describe("validateNtfyUrl", () => {
     });
 });
 
+describe("validateActionUrl (#29)", () => {
+    it.each(["https://example.com/run/1", "http://example.com"])("accepts %s", (url) => {
+        expect(() => validateActionUrl(url)).not.toThrow();
+    });
+
+    // Fixed messages: nothing the agent sent is echoed back.
+    it.each([
+        "javascript:alert(1)",
+        "mailto:someone@example.com",
+        "data:text/html,hi",
+        "ignore-previous-instructions:SECRET",
+        `${"x".repeat(300)}:payload`,
+    ])("rejects %s with a fixed message", (url) => {
+        expect(() => validateActionUrl(url)).toThrow(
+            new Error("Invalid action url: only http:// and https:// links are supported.")
+        );
+    });
+
+    it("rejects a value that isn't a URL with a fixed message", () => {
+        expect(() => validateActionUrl("not a url ignore-previous-instructions")).toThrow(
+            new Error("Invalid action url: not a valid URL. Only http:// and https:// links are supported.")
+        );
+    });
+
+    it("rejects embedded credentials without ntfy authentication advice", () => {
+        expect(() => validateActionUrl("https://alice:SECRET@example.com/path")).toThrow(
+            new Error("Invalid action url: links with embedded credentials are not supported.")
+        );
+    });
+});
+
 describe("sanitizeErrorMessage", () => {
+    it.each([
+        "Invalid action url: only http:// and https:// links are supported.",
+        "Invalid actions: at most 3 view actions are allowed per notification.",
+    ])("passes through %s", (message) => {
+        expect(sanitizeErrorMessage(new Error(message), "fallback")).toBe(message);
+    });
+
     it('passes through errors prefixed with "Invalid ntfyUrl:"', () => {
         const err = new Error("Invalid ntfyUrl: not a valid URL.");
         expect(sanitizeErrorMessage(err, "fallback")).toBe(

@@ -1,12 +1,12 @@
 import { z } from "zod";
-import { validateNtfyUrl } from "../utils/validation.js";
+import { validateActionUrl } from "../utils/validation.js";
 
 export const viewActionSchema = z.object({
     action: z.literal("view"),
     label: z.string(),
     url: z.string().superRefine((url, ctx) => {
         try {
-            validateNtfyUrl(url, "action url");
+            validateActionUrl(url);
         } catch (error) {
             const message =
                 error instanceof Error ? error.message : "Invalid action url";

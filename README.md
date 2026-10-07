@@ -602,7 +602,7 @@ TypeScript typing.",
     </tr>
     <tr>
       <td valign="top"><code>actions</code></td>
-      <td valign="top">Array of view action objects for clickable links (at most 3 per notification). URLs in the message body are auto-detected (up to 3 actions). For manual control, each action requires <code>action</code>, <code>label</code>, and an <code>http://</code> or <code>https://</code> <code>url</code>, with an optional <code>clear</code> flag.</td>
+      <td valign="top">Array of view action objects for clickable links (at most 3 per notification). URLs in the message body are auto-detected (up to 3 actions). For manual control, each action requires <code>action</code>, <code>label</code>, and an <code>http://</code> or <code>https://</code> <code>url</code> without embedded credentials, with an optional <code>clear</code> flag.</td>
       <td valign="top">No</td>
       <td valign="top">
         <details>
