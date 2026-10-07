@@ -538,7 +538,7 @@ TypeScript typing.",
   <tbody>
     <tr>
       <td valign="top"><code>title</code></td>
-      <td valign="top">The notification title</td>
+      <td valign="top">The notification title. Unicode and emoji are supported</td>
       <td valign="top">Yes</td>
       <td valign="top">—</td>
     </tr>
@@ -772,13 +772,14 @@ Both tools return human-readable `content` for the model and a machine-readable 
 
 **Invalid arguments** (a missing `title`, a malformed `topic`, an unknown `priority`, …) are rejected by the MCP SDK's schema validation before the tool runs. They come back with `isError: true` and a text-only `MCP error -32602: Input validation error: …` message that names the field and the expected format, with no `structuredContent`.
 
-**Failures inside the tool** set `isError: true` and return `{ "success": false, "error": "<message>" }`. The error message is specific for an invalid `url` or `topic`, an authentication failure (HTTP 401/403), or a non-2xx status code (`... Status code: 500`). Anything else is reported generically (`Failed to send ntfy notification` / `Failed to fetch ntfy messages`), so raw input or server text is never echoed back to the model.
+**Failures inside the tool** set `isError: true` and return `{ "success": false, "error": "<message>" }`. The error message is specific for an invalid `url` or `topic`, an authentication failure (HTTP 401/403), a non-2xx status code (`... Status code: 500`), or a network failure, named with Node's error code: `... could not connect to the ntfy server (ECONNREFUSED)` when no connection was made, or `... the request to the ntfy server failed (ECONNRESET)` when it broke after connecting (the notification may have been delivered). Anything else is reported generically (`Failed to send ntfy notification` / `Failed to fetch ntfy messages`), so raw input or server text is never echoed back to the model. The full underlying error is written to the server's stderr log.
 
 ## Security
 
 ntfy-me-mcp treats every tool argument as untrusted, because it comes from a model that may have read prompt-injected content.
 
-- **URLs:** only `http://` and `https://` server URLs are accepted, from both the `url` argument and `NTFY_URL`.
+- **URLs:** only `http://` and `https://` server URLs are accepted, from both the `url` argument and `NTFY_URL`. URLs with embedded credentials (`https://user:pass@…`) are rejected; use `NTFY_TOKEN` or `accessToken`.
+- **Tokens and logs:** access tokens must be printable ASCII without spaces. Errors are written to stderr with bearer values and URL credentials redacted.
 - **Topics:** letters, numbers, `_` and `-` only, up to 128 characters.
 - **Error messages:** only a fixed set of known-safe messages reaches the model. Everything else is replaced with a generic message, so attacker-controlled text is never reflected back (see [#13](https://github.com/gitmotion/ntfy-me-mcp/issues/13)).
 - **Fetched messages are untrusted input.** `ntfy_me_fetch` hands message content to the model, and anyone who knows a public topic's name can publish to it. On ntfy.sh, use a hard-to-guess topic name, or a protected topic with an access token.

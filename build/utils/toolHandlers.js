@@ -1,6 +1,7 @@
-import fetch from "node-fetch";
 import { toolHandlerConfigSchema, } from "../schemas/toolHandlerConfig.schema.js";
-import { Logger } from "./logger.js";
+import { describeError, Logger } from "./logger.js";
+import { encodeHeaderValue } from "./headers.js";
+import { validateAccessToken } from "./validation.js";
 import { detectMarkdown } from "./markdown.js";
 import { fetchMessages } from "./messages.js";
 import { processActions } from "./actions.js";
@@ -75,10 +76,10 @@ export function createToolHandlers(config = {}) {
             const baseUrl = url.endsWith("/") ? url.slice(0, -1) : url;
             const endpoint = `${baseUrl}/${topic}`;
             const headers = {
-                Title: title,
+                Title: encodeHeaderValue(title),
             };
             if (token) {
-                headers.Authorization = `Bearer ${token}`;
+                headers.Authorization = `Bearer ${validateAccessToken(token)}`;
             }
             if (priority) {
                 headers.Priority = priority;
@@ -89,10 +90,10 @@ export function createToolHandlers(config = {}) {
                 headers["X-Markdown"] = "true";
             }
             if (tags && tags.length > 0) {
-                headers.Tags = tags.join(",");
+                headers.Tags = encodeHeaderValue(tags.join(","));
             }
             if (viewActions.length > 0) {
-                headers["X-Actions"] = JSON.stringify(viewActions);
+                headers["X-Actions"] = encodeHeaderValue(JSON.stringify(viewActions));
             }
             const cleanEndpoint = endpoint.trim();
             logger.info(`Sending notification to ${cleanEndpoint}` +
@@ -127,6 +128,7 @@ export function createToolHandlers(config = {}) {
             };
         }
         catch (error) {
+            logger.error(`Failed to send ntfy notification: ${describeError(error)}`);
             const message = sanitizeErrorMessage(error, "Failed to send ntfy notification");
             return {
                 content: [
@@ -204,6 +206,7 @@ export function createToolHandlers(config = {}) {
             };
         }
         catch (error) {
+            logger.error(`Failed to fetch ntfy messages: ${describeError(error)}`);
             const message = sanitizeErrorMessage(error, "Failed to fetch ntfy messages");
             return {
                 content: [

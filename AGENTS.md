@@ -48,7 +48,8 @@ src/
     env.ts                 parseBooleanEnv() for opt-in env flags
     actions.ts             auto-detect URLs in a message → up to 3 ntfy "view" actions
     markdown.ts            markdown detection (regex fast path, markdown-it fallback)
-    logger.ts              Logger singleton; every level writes to stderr
+    headers.ts             encodeHeaderValue(): RFC 2047-encodes non-ASCII header values (ntfy decodes them)
+    logger.ts              Logger singleton (every level writes to stderr) + describeError() for log lines
 tests/                     Vitest suites, one per source concern (see Testing)
 build/                     compiled output; COMMITTED to git (see below)
 ```
@@ -81,6 +82,7 @@ This is a stdio MCP server, so **anything written to stdout corrupts the protoco
 - Keep the split: schemas in `src/schemas/`, ntfy-specific security checks in `validation.ts`, tool behavior in `toolHandlers.ts`, network and parsing for fetch in `messages.ts`, startup and registration in `index.ts`. Don't fold them back into one file.
 - Optional tool inputs treat `""` as "not provided" (agents often send empty strings). Follow the existing helpers in `ntfyTopic.schema.ts` and `ntfyPriority.schema.ts` when you add optional enum or string inputs.
 - Handlers return both `content` (text for the model) and `structuredContent` (data), and set `isError: true` on failure.
+- **Header values go through `encodeHeaderValue`.** Node's `fetch` rejects header characters above U+00FF and sends Latin-1 as raw bytes. Every free-text ntfy parameter sent as a header must be wrapped so non-ASCII text arrives intact. Exceptions: `Authorization` (validated with `validateAccessToken`) and enum/boolean values such as `Priority`, `X-Priority` and `X-Markdown`. Query parameters go through `URLSearchParams`, never string concatenation. Log caught errors with `describeError()`, which redacts bearer values and URL credentials.
 
 ### `build/` is committed
 The compiled `build/` directory is checked in. When you change anything under `src/`, run `npm run build` and **commit the regenerated `build/` files in the same change**. A docs-only change should leave `build/` untouched. Check with `git status` after building.
@@ -89,8 +91,9 @@ The compiled `build/` directory is checked in. When you change anything under `s
 
 - Vitest. All tests are mocked; no test may call a live ntfy server.
 - Test files mirror source concerns:
-  - `tests/toolHandlers.test.ts`: handler behavior, with `node-fetch` and `fetchMessages` mocked
-  - `tests/messages.test.ts`: fetch and NDJSON parsing, with `node-fetch` mocked
+  - `tests/toolHandlers.test.ts`: handler behavior, with the global `fetch` stubbed (`vi.stubGlobal`) and `fetchMessages` mocked
+  - `tests/messages.test.ts`: fetch and NDJSON parsing, with the global `fetch` stubbed
+  - `tests/headers.test.ts`: RFC 2047 header encoding; `tests/toolHandlers.headers.test.ts`: encoded headers and error diagnostics in the handlers; `tests/networkErrors.test.ts`: connection-error sanitization
   - `tests/validation.test.ts`: URL/topic rules and error sanitization
   - `tests/*Schema.test.ts`: schema behavior
   - `tests/actions.test.ts`, `tests/markdown.test.ts`: the detection utilities

@@ -1,14 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import fetch, { type Response } from "node-fetch";
 import { fetchToolInputSchema } from "../src/schemas/fetchTool.schema.js";
 import { notifyToolInputSchema } from "../src/schemas/notifyTool.schema.js";
 import { fetchMessages } from "../src/utils/messages.js";
 import { createToolHandlers } from "../src/utils/toolHandlers.js";
 import { Logger } from "../src/utils/logger.js";
 
-vi.mock("node-fetch", () => ({
-    default: vi.fn(),
-}));
+// The network layer uses Node's native fetch (#18).
+const mockFetch = vi.fn<typeof fetch>();
+vi.stubGlobal("fetch", mockFetch);
 
 vi.mock("../src/utils/messages.js", () => ({
     fetchMessages: vi.fn(),
@@ -33,7 +32,6 @@ function buildHandlers(
 }
 
 describe("createToolHandlers", () => {
-    const mockFetch = vi.mocked(fetch);
     const mockFetchMessages = vi.mocked(fetchMessages);
 
     beforeEach(() => {
