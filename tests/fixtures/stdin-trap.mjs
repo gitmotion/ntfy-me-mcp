@@ -3,7 +3,11 @@
 // stdin, so a test can prove a startup path never reads it. Covers stream
 // readers of process.stdin (on/once/resume/read/pipe, which readline,
 // async iteration and `prompts` all go through) and direct fd-0 reads via fs.
-// Not covered: fs/promises.
+// Not covered: fs/promises, opening /dev/stdin or /dev/fd/0 as a new fd, and
+// net/tty streams built on fd 0.
+// Known side effect: the wrappers don't carry fs.read's internal promisify
+// metadata, so util.promisify(fs.read) resolves to bytesRead only while the
+// trap is loaded. Nothing in the server or its dependencies uses it.
 import fs, { writeSync } from "node:fs";
 import { syncBuiltinESMExports } from "node:module";
 
