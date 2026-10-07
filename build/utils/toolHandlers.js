@@ -57,13 +57,17 @@ export function createToolHandlers(config = {}) {
         throw new Error("NTFY_TOPIC environment variable is required. Please ensure it's added to your .env file or passed as an environment variable.");
     }
     /**
-     * An explicit accessToken is always used. The configured NTFY_TOKEN is only
-     * attached when the request goes to the same origin as NTFY_URL, so a
-     * per-call url can't redirect the configured credential to another server.
+     * A non-blank accessToken is always used. A blank one ("", "  ") means "not
+     * provided" (#38), like the other optional inputs. The configured NTFY_TOKEN
+     * is only attached when the request goes to the same origin as NTFY_URL, so
+     * a per-call url can't redirect the configured credential to another server.
      */
     function resolveToken(url, accessToken) {
-        if (accessToken) {
-            return { token: accessToken, withheldDefaultToken: false };
+        // Never fold NTFY_TOKEN into this value: an explicit token skips the
+        // same-origin check below.
+        const explicitToken = accessToken?.trim();
+        if (explicitToken) {
+            return { token: explicitToken, withheldDefaultToken: false };
         }
         const defaultToken = getDefaultToken();
         if (!defaultToken) {

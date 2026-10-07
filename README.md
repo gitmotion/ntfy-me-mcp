@@ -563,7 +563,7 @@ TypeScript typing.",
     </tr>
     <tr>
       <td valign="top"><code>accessToken</code></td>
-      <td valign="top">Access token for protected topics</td>
+      <td valign="top">Access token for protected topics. A blank value (<code>""</code>, spaces) counts as not provided</td>
       <td valign="top">No</td>
       <td valign="top"><i>Default: <code>NTFY_TOKEN</code></i></td>
     </tr>
@@ -715,7 +715,7 @@ AI assistants understand various ways to request message fetching:
     </tr>
     <tr>
       <td valign="top"><code>accessToken</code></td>
-      <td valign="top">Access token for protected topics</td>
+      <td valign="top">Access token for protected topics. A blank value (<code>""</code>, spaces) counts as not provided</td>
       <td valign="top">No</td>
       <td valign="top"><i>Default: <code>NTFY_TOKEN</code></i></td>
     </tr>

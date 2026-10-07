@@ -526,6 +526,117 @@ describe("createToolHandlers", () => {
         });
     });
 
+    // A blank accessToken means "not provided" (#38): the same token choice as
+    // omitting it, including #37's rule that NTFY_TOKEN only goes to NTFY_URL.
+    describe("blank accessToken (#38)", () => {
+        const BLANK_TOKENS = ["", "   ", "\t\n", "\u00a0"];
+
+        it.each(BLANK_TOKENS)("ntfy_me sends NTFY_TOKEN to NTFY_URL for accessToken %j", async (blank) => {
+            mockFetch.mockResolvedValueOnce(createResponse());
+
+            const { handleNotifyTool } = buildHandlers();
+            const result = await handleNotifyTool({
+                title: "Blank token",
+                message: "Same server",
+                accessToken: blank,
+                topic: undefined,
+                priority: "default",
+            });
+
+            expect(result.isError).toBeUndefined();
+            expect(mockFetch.mock.calls[0][1]?.headers).toMatchObject({ Authorization: "Bearer env-token" });
+        });
+
+        it.each(BLANK_TOKENS)("ntfy_me_fetch passes NTFY_TOKEN for NTFY_URL for accessToken %j", async (blank) => {
+            mockFetchMessages.mockResolvedValueOnce(null);
+
+            const { handleFetchTool } = buildHandlers();
+            await handleFetchTool({ accessToken: blank, topic: undefined, priorities: undefined });
+
+            expect(mockFetchMessages).toHaveBeenCalledWith(
+                expect.objectContaining({ url: "https://ntfy.sh", token: "env-token" })
+            );
+        });
+
+        it.each(BLANK_TOKENS)("ntfy_me withholds NTFY_TOKEN from another origin for accessToken %j", async (blank) => {
+            const warnSpy = vi.spyOn(Logger.getInstance(), "warn").mockImplementation(() => {});
+            mockFetch.mockResolvedValueOnce(createResponse({ ok: false, status: 401 }));
+
+            const { handleNotifyTool } = buildHandlers({ allowUrlOverride: true });
+            const result = await handleNotifyTool({
+                title: "Blank token",
+                message: "Other server",
+                url: "https://other.example.com",
+                accessToken: blank,
+                topic: undefined,
+                priority: "default",
+            });
+
+            expect(mockFetch.mock.calls[0][1]?.headers).not.toHaveProperty("Authorization");
+            expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining("Not sending NTFY_TOKEN"));
+            expect(result.structuredContent).toEqual({
+                success: false,
+                error:
+                    "Authentication failed when sending notification. NTFY_TOKEN is only sent to the NTFY_URL server; pass the 'accessToken' parameter to authenticate with this server.",
+            });
+            warnSpy.mockRestore();
+        });
+
+        it.each(BLANK_TOKENS)("ntfy_me_fetch withholds NTFY_TOKEN from another origin for accessToken %j", async (blank) => {
+            mockFetchMessages.mockRejectedValueOnce(
+                new Error("Authentication failed when fetching messages. This ntfy topic requires an access token.")
+            );
+
+            const { handleFetchTool } = buildHandlers({ allowUrlOverride: true });
+            const result = await handleFetchTool({
+                url: "https://other.example.com",
+                accessToken: blank,
+                topic: undefined,
+                priorities: undefined,
+            });
+
+            expect(mockFetchMessages).toHaveBeenCalledWith(
+                expect.objectContaining({ url: "https://other.example.com", token: undefined })
+            );
+            expect(result.structuredContent).toEqual({
+                success: false,
+                error:
+                    "Authentication failed when fetching messages. NTFY_TOKEN is only sent to the NTFY_URL server; pass the 'accessToken' parameter to authenticate with this server.",
+            });
+        });
+
+        it.each(BLANK_TOKENS)("sends no Authorization header without NTFY_TOKEN for accessToken %j", async (blank) => {
+            mockFetch.mockResolvedValueOnce(createResponse());
+
+            const { handleNotifyTool } = buildHandlers({ getDefaultToken: () => undefined });
+            const result = await handleNotifyTool({
+                title: "Blank token",
+                message: "Public topic",
+                accessToken: blank,
+                topic: undefined,
+                priority: "default",
+            });
+
+            expect(result.isError).toBeUndefined();
+            expect(mockFetch.mock.calls[0][1]?.headers).not.toHaveProperty("Authorization");
+        });
+
+        it("still uses a non-blank accessToken, trimmed", async () => {
+            mockFetch.mockResolvedValueOnce(createResponse());
+
+            const { handleNotifyTool } = buildHandlers();
+            await handleNotifyTool({
+                title: "Padded token",
+                message: "Own token",
+                accessToken: " per-call-token\t",
+                topic: undefined,
+                priority: "default",
+            });
+
+            expect(mockFetch.mock.calls[0][1]?.headers).toMatchObject({ Authorization: "Bearer per-call-token" });
+        });
+    });
+
     describe("NTFY_TOKEN origin guard", () => {
         it("does not send NTFY_TOKEN to a per-call url on a different origin", async () => {
             mockFetch.mockResolvedValueOnce(createResponse());
