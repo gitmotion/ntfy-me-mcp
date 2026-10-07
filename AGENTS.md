@@ -97,7 +97,7 @@ The compiled `build/` directory is checked in. When you change anything under `s
   - `tests/validation.test.ts`: URL/topic rules and error sanitization
   - `tests/*Schema.test.ts`: schema behavior
   - `tests/actions.test.ts`, `tests/markdown.test.ts`: the detection utilities
-  - `tests/stdout.test.ts`: spawns the built server; stdout stays JSON-RPC-only and dotenv can't override the client's env
+  - `tests/stdout.test.ts`: spawns the built server; stdout stays JSON-RPC-only, `./.env` is loaded (as UTF-8), and no `DOTENV_*` variable can override the client's env or change which file is read
 - Any change to tool handlers, schemas, validation or fetch parsing needs new or updated tests in the matching file.
 - Tests are not type-checked by `npm run typecheck` (`tsconfig.json` includes only `src/`), so keep them type-correct by hand.
 

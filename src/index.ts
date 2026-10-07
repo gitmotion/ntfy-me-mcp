@@ -29,12 +29,14 @@ const packageJson = JSON.parse(fs.readFileSync(packagePath, "utf8"));
 
 // Explicit options take precedence over dotenv's DOTENV_* / DOTENV_CONFIG_*
 // env vars: never print (stdout is the MCP JSON-RPC channel), never let a
-// .env override the client's config, and only read ./.env (dotenv 17 behavior).
+// .env override the client's config, and only read ./.env as UTF-8 (dotenv 17
+// behavior). DOTENV_FAST is left alone: its parser reads .env files the same.
 dotenv.config({
   quiet: true,
   debug: false,
   override: false,
   path: join(process.cwd(), ".env"),
+  encoding: "utf8",
 });
 
 const NTFY_TOPIC = process.env.NTFY_TOPIC;

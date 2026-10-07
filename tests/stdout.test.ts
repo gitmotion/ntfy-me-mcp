@@ -17,13 +17,21 @@ async function startAndStop(cwd: string, env: Record<string, string>) {
 
     let stdout = "";
     let stderr = "";
+    child.stdout.setEncoding("utf8");
+    child.stderr.setEncoding("utf8");
     child.stdout.on("data", (chunk) => (stdout += chunk));
     child.stderr.on("data", (chunk) => (stderr += chunk));
     const closed = new Promise<void>((resolve) => child.once("close", () => resolve()));
 
     try {
         await new Promise<void>((resolve, reject) => {
-            const timer = setTimeout(() => reject(new Error(`server did not start: ${stderr}`)), 5000);
+            // Shorter than vitest's 5 s default so a hung start reports the server's stderr.
+            const timer = setTimeout(() => reject(new Error(`server did not start: ${stderr}`)), 4000);
+            // "close" (not "exit") fires after stderr is drained, so the message has all of it.
+            void closed.then(() => {
+                clearTimeout(timer);
+                reject(new Error(`server exited (${child.exitCode ?? child.signalCode}) before it was ready: ${stderr}`));
+            });
             child.stderr.on("data", () => {
                 if (stderr.includes("running on stdio")) {
                     clearTimeout(timer);
@@ -75,6 +83,31 @@ describe("dotenv can't interfere with the MCP channel or the client's config", (
 
         expect(stderr).toContain("http://127.0.0.1:9/client_topic");
         expect(stderr).not.toContain("dotenv.invalid");
+    });
+
+    it("loads ./.env from the working directory", async () => {
+        workDir = mkdtempSync(join(tmpdir(), "ntfy-me-load-"));
+        // The client doesn't set NTFY_TOPIC, so only ./.env can supply it.
+        writeFileSync(join(workDir, ".env"), "NTFY_TOPIC=loaded_from_dotenv\n");
+
+        const { stderr } = await startAndStop(workDir, { NTFY_URL: "http://127.0.0.1:9" });
+
+        expect(stderr).toContain("http://127.0.0.1:9/loaded_from_dotenv");
+    });
+
+    it("reads ./.env as UTF-8, ignoring DOTENV_ENCODING", async () => {
+        workDir = mkdtempSync(join(tmpdir(), "ntfy-me-encoding-"));
+        // A non-ASCII value only survives a UTF-8 read (latin1 would turn ü into Ã¼).
+        // This relies on the startup log printing NTFY_URL as given; if startup ever
+        // normalizes it (e.g. to punycode), update the expectation, not the encoding.
+        writeFileSync(join(workDir, ".env"), "NTFY_URL=http://bücher.invalid\nNTFY_TOPIC=from_dotenv\n", "utf8");
+
+        const { stderr } = await startAndStop(workDir, {
+            DOTENV_ENCODING: "utf16le",
+            DOTENV_CONFIG_ENCODING: "utf16le",
+        });
+
+        expect(stderr).toContain("http://bücher.invalid/from_dotenv");
     });
 
     it("only reads ./.env, ignoring DOTENV_PATH", async () => {
