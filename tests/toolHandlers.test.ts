@@ -148,6 +148,37 @@ describe("createToolHandlers", () => {
             });
         });
 
+        it("treats a whitespace-only accessToken as not provided and falls back to the default token", async () => {
+            mockFetch.mockResolvedValueOnce(createResponse());
+
+            const { handleNotifyTool } = buildHandlers();
+            const result = await handleNotifyTool({
+                title: "Whitespace token",
+                message: "Fall back",
+                topic: undefined,
+                accessToken: "   ",
+                priority: "default",
+            });
+
+            expect(result).toEqual({
+                content: [
+                    {
+                        type: "text",
+                        text: "Notification sent successfully to https://ntfy.sh/default_topic!",
+                    },
+                ],
+                structuredContent: {
+                    success: true,
+                    endpoint: "https://ntfy.sh/default_topic",
+                },
+            });
+
+            const [, options] = mockFetch.mock.calls[0];
+            expect(options?.headers).toMatchObject({
+                Authorization: "Bearer env-token",
+            });
+        });
+
         it("surfaces authentication errors for protected topics", async () => {
             mockFetch.mockResolvedValueOnce(createResponse({ ok: false, status: 401 }));
 
@@ -276,6 +307,29 @@ describe("createToolHandlers", () => {
             });
 
             await handleFetchTool(input);
+
+            expect(mockFetchMessages).toHaveBeenCalledWith({
+                url: "https://ntfy.sh",
+                topic: "default_topic",
+                token: "env-token",
+                since: "10m",
+                messageId: undefined,
+                messageText: undefined,
+                messageTitle: undefined,
+                priorities: undefined,
+                tags: undefined,
+            });
+        });
+
+        it("treats a whitespace-only accessToken as not provided and falls back to the default token", async () => {
+            mockFetchMessages.mockResolvedValueOnce(null);
+
+            const { handleFetchTool } = buildHandlers();
+            await handleFetchTool({
+                topic: undefined,
+                accessToken: "   ",
+                priorities: undefined,
+            });
 
             expect(mockFetchMessages).toHaveBeenCalledWith({
                 url: "https://ntfy.sh",
