@@ -23,7 +23,12 @@ async function startAndStop(cwd: string, env: Record<string, string>) {
 
     try {
         await new Promise<void>((resolve, reject) => {
-            const timer = setTimeout(() => reject(new Error(`server did not start: ${stderr}`)), 5000);
+            // Shorter than vitest's 5 s default so a hung start reports the server's stderr.
+            const timer = setTimeout(() => reject(new Error(`server did not start: ${stderr}`)), 4000);
+            child.once("exit", (code) => {
+                clearTimeout(timer);
+                reject(new Error(`server exited (${code}) before it was ready: ${stderr}`));
+            });
             child.stderr.on("data", () => {
                 if (stderr.includes("running on stdio")) {
                     clearTimeout(timer);
@@ -75,6 +80,29 @@ describe("dotenv can't interfere with the MCP channel or the client's config", (
 
         expect(stderr).toContain("http://127.0.0.1:9/client_topic");
         expect(stderr).not.toContain("dotenv.invalid");
+    });
+
+    it("loads ./.env from the working directory", async () => {
+        workDir = mkdtempSync(join(tmpdir(), "ntfy-me-load-"));
+        // The client doesn't set NTFY_TOPIC, so only ./.env can supply it.
+        writeFileSync(join(workDir, ".env"), "NTFY_TOPIC=from_dotenv\n");
+
+        const { stderr } = await startAndStop(workDir, { NTFY_URL: "http://127.0.0.1:9" });
+
+        expect(stderr).toContain("http://127.0.0.1:9/from_dotenv");
+    });
+
+    it("reads ./.env as UTF-8, ignoring DOTENV_ENCODING", async () => {
+        workDir = mkdtempSync(join(tmpdir(), "ntfy-me-encoding-"));
+        // A non-ASCII value only survives a UTF-8 read (latin1 would turn ü into Ã¼).
+        writeFileSync(join(workDir, ".env"), "NTFY_URL=http://bücher.invalid\nNTFY_TOPIC=from_dotenv\n", "utf8");
+
+        const { stderr } = await startAndStop(workDir, {
+            DOTENV_ENCODING: "utf16le",
+            DOTENV_CONFIG_ENCODING: "utf16le",
+        });
+
+        expect(stderr).toContain("http://bücher.invalid/from_dotenv");
     });
 
     it("only reads ./.env, ignoring DOTENV_PATH", async () => {
