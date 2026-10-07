@@ -414,6 +414,7 @@ Create a `.env` file by copying the example: `cp .env.example .env` — see [`.e
 | `NTFY_URL` | No | `https://ntfy.sh` | ntfy server URL — change this for self-hosted instances<br/>(include port if needed, e.g. `https://your-server.com:8443`) |
 | `NTFY_TOKEN` | No | — | Access token for protected topics or private servers. Only ever sent to the `NTFY_URL` server |
 | `NTFY_ALLOW_TOPIC_OVERRIDE` | No | `false` | Set to `true` to let the agent choose a per-call `topic`. When off (the default), the `topic` parameter isn't offered to the agent and every notification and fetch uses `NTFY_TOPIC` |
+| `NTFY_TOPICS_ALLOWLIST` | No | — | Comma-separated topics you subscribe to, e.g. `alerts,builds,deploys`. When set, the agent may send to or fetch from `NTFY_TOPIC` or one of these topics, and no other topic. The `topic` parameter is offered as a list of exactly those topics. Takes precedence over `NTFY_ALLOW_TOPIC_OVERRIDE`. An invalid entry, or a value that lists no topics (e.g. `,`), stops the server at startup |
 | `NTFY_ALLOW_URL_OVERRIDE` | No | `false` | Set to `true` to let the agent choose a per-call server `url`. When off (the default), the `url` parameter isn't offered and every request goes to `NTFY_URL`. Even when on, `NTFY_TOKEN` is only sent to `NTFY_URL` |
 
 ### Authentication
@@ -556,7 +557,7 @@ TypeScript typing.",
     </tr>
     <tr>
       <td valign="top"><code>topic</code></td>
-      <td valign="top">Custom ntfy topic. <b>Only offered when <code>NTFY_ALLOW_TOPIC_OVERRIDE=true</code></b>; otherwise every notification goes to <code>NTFY_TOPIC</code></td>
+      <td valign="top">Custom ntfy topic. <b>Only offered when <code>NTFY_TOPICS_ALLOWLIST</code> is set (then limited to <code>NTFY_TOPIC</code> and those topics) or <code>NTFY_ALLOW_TOPIC_OVERRIDE=true</code></b>; otherwise every notification goes to <code>NTFY_TOPIC</code></td>
       <td valign="top">No</td>
       <td valign="top"><i>Default: <code>NTFY_TOPIC</code></i></td>
     </tr>
@@ -648,7 +649,7 @@ AI assistants understand various ways to request message fetching:
 "Get messages from the last hour"
 "Find notifications with title 'Build Complete'"
 "Search for messages with the test_tube tag"
-"Show notifications from the updates topic from the last 24hr"  # needs NTFY_ALLOW_TOPIC_OVERRIDE=true
+"Show notifications from the updates topic from the last 24hr"  # needs updates in NTFY_TOPICS_ALLOWLIST (or NTFY_ALLOW_TOPIC_OVERRIDE=true)
 "Check my latest alerts"
 ```
 
@@ -708,7 +709,7 @@ AI assistants understand various ways to request message fetching:
     </tr>
     <tr>
       <td valign="top"><code>topic</code></td>
-      <td valign="top">Topic to fetch messages from. <b>Only offered when <code>NTFY_ALLOW_TOPIC_OVERRIDE=true</code></b></td>
+      <td valign="top">Topic to fetch messages from. <b>Only offered when <code>NTFY_TOPICS_ALLOWLIST</code> is set (limited to <code>NTFY_TOPIC</code> and those topics) or <code>NTFY_ALLOW_TOPIC_OVERRIDE=true</code></b></td>
       <td valign="top">No</td>
       <td valign="top"><i>Default: <code>NTFY_TOPIC</code></i><br/><br/><code>{ "topic": "updates", "since": "all" }</code></td>
     </tr>
@@ -784,7 +785,8 @@ ntfy-me-mcp treats every tool argument as untrusted, because it comes from a mod
 - **Error messages:** only a fixed set of known-safe messages reaches the model. Everything else is replaced with a generic message, so attacker-controlled text is never reflected back (see [#13](https://github.com/gitmotion/ntfy-me-mcp/issues/13)).
 - **Fetched messages are untrusted input.** `ntfy_me_fetch` hands message content to the model, and anyone who knows a public topic's name can publish to it. On ntfy.sh, use a hard-to-guess topic name, or a protected topic with an access token.
 - **Destination control:** by default, every notification and fetch goes to `NTFY_TOPIC` on `NTFY_URL`. The agent is never offered the `topic` or `url` parameters, so a prompt-injected call can't send your messages, or your topic name (which is effectively a password on public ntfy.sh), anywhere else (see [#21](https://github.com/gitmotion/ntfy-me-mcp/issues/21)).
-  - `NTFY_ALLOW_TOPIC_OVERRIDE=true` and `NTFY_ALLOW_URL_OVERRIDE=true` opt back in, independently.
+  - `NTFY_TOPICS_ALLOWLIST=alerts,builds` lets the agent choose among the topics you actually subscribe to, plus `NTFY_TOPIC`, and no other topic (see [#34](https://github.com/gitmotion/ntfy-me-mcp/issues/34)). Any other topic is rejected before a request is made, with no silent fallback. These topic names, **including `NTFY_TOPIC`**, appear in the tool schema, so the model and your MCP client can see them. Without an allowlist, the tool schema never contains a topic name. On public ntfy.sh, a topic name works like a password, so only use the allowlist with names you're comfortable sharing with them, or with protected topics.
+  - `NTFY_ALLOW_TOPIC_OVERRIDE=true` and `NTFY_ALLOW_URL_OVERRIDE=true` opt back in to any topic or server, independently. If `NTFY_TOPICS_ALLOWLIST` is also set, it wins over `NTFY_ALLOW_TOPIC_OVERRIDE`.
   - Even with url overrides on, `NTFY_TOKEN` is only ever sent to the `NTFY_URL` server. Other servers get no credentials unless the call supplies its own `accessToken`.
 - **Tokens:** prefer your client's secret input (e.g. VS Code `${input:…}`) or an environment variable over hardcoding `NTFY_TOKEN` in a config file you share.
 

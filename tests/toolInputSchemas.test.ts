@@ -50,4 +50,57 @@ describe("tool input schemas and destination overrides (#21)", () => {
             expect(schema.shape.url.description).toMatch(/NTFY_TOKEN is only sent to NTFY_URL/);
         }
     });
+
+    describe("topic allowlist (#34)", () => {
+        const ALLOWLIST = { allowTopicOverride: false, allowUrlOverride: false, allowedTopics: ["default_topic", "alerts"] };
+
+        it.each([
+            ["ntfy_me", createNotifyToolInputSchema, { title: "T", message: "m" }],
+            ["ntfy_me_fetch", createFetchToolInputSchema, {}],
+        ] as const)("%s offers topic, limited to the allowed topics", (_name, create, base) => {
+            const schema = create(ALLOWLIST);
+
+            expect(Object.keys(schema.shape)).toContain("topic");
+            expect(Object.keys(schema.shape)).not.toContain("url");
+            expect(schema.parse({ ...base, topic: "alerts" })).toMatchObject({ topic: "alerts" });
+            expect(schema.parse({ ...base, topic: " alerts " })).toMatchObject({ topic: "alerts" });
+            expect(schema.safeParse({ ...base, topic: "agent_picked_topic" }).success).toBe(false);
+            for (const topic of [null, 123, ["alerts"], "Alerts"]) {
+                expect(schema.safeParse({ ...base, topic }).success).toBe(false);
+            }
+        });
+
+        it.each([
+            ["ntfy_me", createNotifyToolInputSchema, { title: "T", message: "m" }],
+            ["ntfy_me_fetch", createFetchToolInputSchema, {}],
+        ] as const)("%s treats a blank or missing topic as the default", (_name, create, base) => {
+            const schema = create(ALLOWLIST);
+
+            for (const topic of ["", "   ", undefined]) {
+                expect(schema.parse({ ...base, topic }).topic).toBeUndefined();
+            }
+        });
+
+        it.each([
+            ["ntfy_me", createNotifyToolInputSchema, { title: "T", message: "m" }],
+            ["ntfy_me_fetch", createFetchToolInputSchema, {}],
+        ] as const)("%s keeps the allowlist when allowTopicOverride is also set", (_name, create, base) => {
+            const schema = create({ ...ALLOWLIST, allowTopicOverride: true });
+
+            expect(schema.safeParse({ ...base, topic: "agent_picked_topic" }).success).toBe(false);
+        });
+
+        it("lists the allowed topics in the topic description", () => {
+            for (const schema of [createNotifyToolInputSchema(ALLOWLIST), createFetchToolInputSchema(ALLOWLIST)]) {
+                expect(schema.shape.topic.description).toContain("One of: default_topic, alerts.");
+                expect(schema.shape.topic.description).toContain("Defaults to default_topic (NTFY_TOPIC)");
+            }
+        });
+
+        it.each([[undefined], [[]]])("an allowlist of %j keeps the #21 behaviour", (allowedTopics) => {
+            const schema = createNotifyToolInputSchema({ allowTopicOverride: false, allowUrlOverride: false, allowedTopics });
+
+            expect(Object.keys(schema.shape)).not.toContain("topic");
+        });
+    });
 });

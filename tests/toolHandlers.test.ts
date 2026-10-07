@@ -287,6 +287,128 @@ describe("createToolHandlers", () => {
         });
     });
 
+    describe("topic allowlist (#34)", () => {
+        const allowedTopics = ["default_topic", "alerts", "builds"];
+
+        it("sends to an allowlisted topic, ignoring surrounding whitespace", async () => {
+            mockFetch.mockResolvedValue(createResponse());
+
+            const { handleNotifyTool } = buildHandlers({ allowedTopics });
+            for (const topic of ["alerts", " alerts "]) {
+                await handleNotifyTool({ title: "T", message: "m", topic, priority: "default" });
+            }
+
+            expect(mockFetch.mock.calls.map((call) => call[0])).toEqual([
+                "https://ntfy.sh/alerts",
+                "https://ntfy.sh/alerts",
+            ]);
+        });
+
+        it("uses NTFY_TOPIC when no topic (or a blank one) is given", async () => {
+            mockFetch.mockResolvedValue(createResponse());
+
+            const { handleNotifyTool } = buildHandlers({ allowedTopics });
+            for (const topic of [undefined, "", "   "]) {
+                await handleNotifyTool({ title: "T", message: "m", topic, priority: "default" });
+            }
+
+            expect(mockFetch.mock.calls.map((call) => call[0])).toEqual([
+                "https://ntfy.sh/default_topic",
+                "https://ntfy.sh/default_topic",
+                "https://ntfy.sh/default_topic",
+            ]);
+        });
+
+        it("rejects a topic outside the allowlist without sending, and doesn't echo it", async () => {
+            const { handleNotifyTool } = buildHandlers({ allowedTopics });
+            const result = await handleNotifyTool({
+                title: "T",
+                message: "m",
+                topic: "unfollowed_topic",
+                priority: "default",
+            });
+
+            expect(result.isError).toBe(true);
+            expect(result.structuredContent.error).toBe("Invalid topic: not in NTFY_TOPICS_ALLOWLIST.");
+            expect(JSON.stringify(result)).not.toContain("unfollowed_topic");
+            expect(mockFetch).not.toHaveBeenCalled();
+        });
+
+        it("keeps the allowlist when allowTopicOverride is also set", async () => {
+            const { handleNotifyTool } = buildHandlers({ allowedTopics, allowTopicOverride: true });
+            const result = await handleNotifyTool({
+                title: "T",
+                message: "m",
+                topic: "unfollowed_topic",
+                priority: "default",
+            });
+
+            expect(result.isError).toBe(true);
+            expect(mockFetch).not.toHaveBeenCalled();
+        });
+
+        it("uses NTFY_TOPIC for a blank topic even when allowTopicOverride is also set", async () => {
+            mockFetch.mockResolvedValueOnce(createResponse());
+
+            const { handleNotifyTool } = buildHandlers({ allowedTopics, allowTopicOverride: true });
+            const result = await handleNotifyTool({ title: "T", message: "m", topic: "   ", priority: "default" });
+
+            expect(result.isError).toBeUndefined();
+            expect(mockFetch.mock.calls[0][0]).toBe("https://ntfy.sh/default_topic");
+        });
+
+        it("fetches from an allowlisted topic and rejects any other", async () => {
+            mockFetchMessages.mockResolvedValueOnce(null);
+
+            const { handleFetchTool } = buildHandlers({ allowedTopics });
+            await handleFetchTool({ topic: "builds", priorities: undefined });
+            const rejected = await handleFetchTool({ topic: "unfollowed_topic", priorities: undefined });
+
+            expect(mockFetchMessages).toHaveBeenCalledTimes(1);
+            expect(mockFetchMessages).toHaveBeenCalledWith(expect.objectContaining({ topic: "builds" }));
+            expect(rejected.isError).toBe(true);
+            expect(rejected.structuredContent.error).toBe("Invalid topic: not in NTFY_TOPICS_ALLOWLIST.");
+        });
+
+        it("always allows NTFY_TOPIC and trims allowlist entries for library callers", async () => {
+            mockFetch.mockResolvedValue(createResponse());
+
+            const { handleNotifyTool } = buildHandlers({ allowedTopics: [" alerts "] });
+            const results = [];
+            for (const topic of ["default_topic", "alerts"]) {
+                results.push(await handleNotifyTool({ title: "T", message: "m", topic, priority: "default" }));
+            }
+
+            expect(results.map((result) => result.isError)).toEqual([undefined, undefined]);
+            expect(mockFetch.mock.calls.map((call) => call[0])).toEqual([
+                "https://ntfy.sh/default_topic",
+                "https://ntfy.sh/alerts",
+            ]);
+        });
+
+        it("compares against a trimmed NTFY_TOPIC for library callers", async () => {
+            mockFetch.mockResolvedValueOnce(createResponse());
+
+            const { handleNotifyTool } = buildHandlers({
+                getDefaultTopic: () => " default_topic ",
+                allowedTopics: ["alerts"],
+            });
+            const result = await handleNotifyTool({ title: "T", message: "m", topic: "default_topic", priority: "default" });
+
+            expect(result.isError).toBeUndefined();
+            expect(mockFetch.mock.calls[0][0]).toBe("https://ntfy.sh/default_topic");
+        });
+
+        it("an empty allowlist keeps the #21 lock", async () => {
+            mockFetch.mockResolvedValueOnce(createResponse());
+
+            const { handleNotifyTool } = buildHandlers({ allowedTopics: [] });
+            await handleNotifyTool({ title: "T", message: "m", topic: "alerts", priority: "default" });
+
+            expect(mockFetch.mock.calls[0][0]).toBe("https://ntfy.sh/default_topic");
+        });
+    });
+
     describe("url override (#21)", () => {
         it("ignores a per-call url and uses NTFY_URL when url overrides are not allowed (default)", async () => {
             const warnSpy = vi.spyOn(Logger.getInstance(), "warn").mockImplementation(() => {});

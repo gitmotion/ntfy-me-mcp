@@ -30,3 +30,19 @@ export function createOptionalNtfyTopicSchema(description: string) {
         })
         .describe(description);
 }
+
+/**
+ * Optional topic limited to `topics` (NTFY_TOPICS_ALLOWLIST, #34). Advertised
+ * to the agent as a plain JSON-schema enum. Surrounding whitespace is trimmed
+ * and a blank value means "not provided" (the default topic), like the other
+ * optional inputs.
+ */
+export function createAllowedTopicSchema(topics: [string, ...string[]], description: string) {
+    return z
+        .preprocess(
+            (value) => (typeof value === "string" ? value.trim() || undefined : value),
+            z.enum(topics).optional()
+        )
+        .describe(description);
+}
+
