@@ -4,29 +4,74 @@ import { Logger } from "./logger.js";
 import { detectMarkdown } from "./markdown.js";
 import { fetchMessages } from "./messages.js";
 import { processActions } from "./actions.js";
-import { sanitizeErrorMessage, validateNtfyTopic, validateNtfyUrl, } from "./validation.js";
+import { isSameOrigin, sanitizeErrorMessage, validateNtfyTopic, validateNtfyUrl, } from "./validation.js";
 const logger = Logger.getInstance();
+// Normalizes a URL for the "is this the configured server?" warning check
+// (case of scheme/host, default ports, trailing slashes). Never used for routing.
+function normalizeUrlForComparison(value) {
+    try {
+        return new URL(value.trim()).href.replace(/\/+$/, "");
+    }
+    catch {
+        return value.trim().replace(/\/+$/, "");
+    }
+}
 export function createToolHandlers(config = {}) {
     const parsedConfig = toolHandlerConfigSchema.parse(config);
     const getDefaultTopic = parsedConfig.getDefaultTopic ?? (() => undefined);
     const getDefaultUrl = parsedConfig.getDefaultUrl ?? (() => "https://ntfy.sh");
     const getDefaultToken = parsedConfig.getDefaultToken ?? (() => undefined);
+    const allowTopicOverride = parsedConfig.allowTopicOverride ?? false;
+    const allowUrlOverride = parsedConfig.allowUrlOverride ?? false;
+    function resolveUrl(url) {
+        if (url && allowUrlOverride) {
+            return url;
+        }
+        const defaultUrl = getDefaultUrl();
+        if (url?.trim() && normalizeUrlForComparison(url) !== normalizeUrlForComparison(defaultUrl)) {
+            logger.warn("Ignoring the per-call url: url overrides are disabled. Set NTFY_ALLOW_URL_OVERRIDE=true to allow them.");
+        }
+        return defaultUrl;
+    }
     function resolveTopic(topic) {
-        if (topic) {
+        if (topic && allowTopicOverride) {
             return validateNtfyTopic(topic, "topic");
         }
         const defaultTopic = getDefaultTopic();
+        if (topic?.trim() && topic.trim() !== defaultTopic?.trim()) {
+            logger.warn("Ignoring the per-call topic: topic overrides are disabled. Set NTFY_ALLOW_TOPIC_OVERRIDE=true to allow them.");
+        }
         if (defaultTopic) {
             return validateNtfyTopic(defaultTopic, "NTFY_TOPIC");
         }
         throw new Error("NTFY_TOPIC environment variable is required. Please ensure it's added to your .env file or passed as an environment variable.");
     }
+    /**
+     * An explicit accessToken is always used. The configured NTFY_TOKEN is only
+     * attached when the request goes to the same origin as NTFY_URL, so a
+     * per-call url can't redirect the configured credential to another server.
+     */
+    function resolveToken(url, accessToken) {
+        if (accessToken) {
+            return { token: accessToken, withheldDefaultToken: false };
+        }
+        const defaultToken = getDefaultToken();
+        if (!defaultToken) {
+            return { token: undefined, withheldDefaultToken: false };
+        }
+        if (isSameOrigin(url, getDefaultUrl())) {
+            return { token: defaultToken, withheldDefaultToken: false };
+        }
+        logger.warn("Not sending NTFY_TOKEN: the request URL is not on the NTFY_URL server. Pass accessToken to authenticate with another server.");
+        return { token: undefined, withheldDefaultToken: true };
+    }
+    const WITHHELD_TOKEN_HINT = "NTFY_TOKEN is only sent to the NTFY_URL server; pass the 'accessToken' parameter to authenticate with this server.";
     async function handleNotifyTool({ title, message, url: customUrl, topic: customTopic, accessToken, priority, tags, markdown, actions, }) {
         try {
-            const url = customUrl || getDefaultUrl();
+            const url = resolveUrl(customUrl);
             const topic = resolveTopic(customTopic);
-            const token = accessToken || getDefaultToken();
             validateNtfyUrl(url, "url");
+            const { token, withheldDefaultToken } = resolveToken(url, accessToken);
             const baseUrl = url.endsWith("/") ? url.slice(0, -1) : url;
             const endpoint = `${baseUrl}/${topic}`;
             const headers = {
@@ -61,8 +106,10 @@ export function createToolHandlers(config = {}) {
             if (!response.ok) {
                 if (response.status === 401 || response.status === 403) {
                     throw new Error("Authentication failed when sending notification. " +
-                        "This ntfy topic requires an access token. Please provide a token using the 'accessToken' parameter " +
-                        "or set the NTFY_TOKEN environment variable.");
+                        (withheldDefaultToken
+                            ? WITHHELD_TOKEN_HINT
+                            : "This ntfy topic requires an access token. Please provide a token using the 'accessToken' parameter " +
+                                "or set the NTFY_TOKEN environment variable."));
                 }
                 throw new Error(`Failed to send ntfy notification. Status code: ${response.status}`);
             }
@@ -98,11 +145,11 @@ export function createToolHandlers(config = {}) {
     }
     async function handleFetchTool({ url: customUrl, topic: customTopic, accessToken, since, messageId, messageText, messageTitle, priorities, tags, }) {
         try {
-            const url = customUrl || getDefaultUrl();
+            const url = resolveUrl(customUrl);
             const topic = resolveTopic(customTopic);
-            const token = accessToken || getDefaultToken();
             const sinceSetting = since === null ? undefined : since || "10m";
             validateNtfyUrl(url, "url");
+            const { token, withheldDefaultToken } = resolveToken(url, accessToken);
             const messageRecords = await fetchMessages({
                 url,
                 topic,
@@ -113,6 +160,13 @@ export function createToolHandlers(config = {}) {
                 messageTitle,
                 priorities,
                 tags,
+            }).catch((error) => {
+                if (withheldDefaultToken &&
+                    error instanceof Error &&
+                    error.message.startsWith("Authentication failed when fetching messages.")) {
+                    throw new Error(`Authentication failed when fetching messages. ${WITHHELD_TOKEN_HINT}`);
+                }
+                throw error;
             });
             if (!messageRecords) {
                 return {

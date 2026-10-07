@@ -20,6 +20,24 @@ export function validateNtfyUrl(url, fieldName = "ntfyUrl") {
     }
 }
 /**
+ * Checks whether two URLs share an origin (scheme, host and port).
+ * Used to decide whether the configured NTFY_TOKEN may be sent to a URL.
+ *
+ * @param url The URL a request is about to be sent to
+ * @param otherUrl The URL to compare against (e.g. NTFY_URL)
+ * @returns True when both parse and their origins match; false otherwise
+ */
+export function isSameOrigin(url, otherUrl) {
+    try {
+        const origin = new URL(url).origin;
+        // Opaque origins (file:, data:, mailto:, …) all serialize to "null".
+        return origin !== "null" && origin === new URL(otherUrl).origin;
+    }
+    catch {
+        return false;
+    }
+}
+/**
  * Detects unresolved client-side input placeholders such as ${input:ntfy_token}.
  * The server cannot inspect editor config directly, but it can identify placeholder
  * values that were passed through unchanged.

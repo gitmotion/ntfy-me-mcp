@@ -18,7 +18,15 @@ startCommand:
       token:
         type: string
         default: ""
-        description: Authentication token for protected topics
+        description: Authentication token for protected topics (only sent to the configured url)
+      allowTopicOverride:
+        type: boolean
+        default: false
+        description: Let the agent send to a topic other than the configured one
+      allowUrlOverride:
+        type: boolean
+        default: false
+        description: Let the agent send to a server other than the configured url
   commandFunction:
     # A JS function that produces the CLI command based on the given config to start the MCP on stdio.
     |-
@@ -28,7 +36,9 @@ startCommand:
       env: Object.assign(
         { NTFY_TOPIC: config.topic },
         config.url ? { NTFY_URL: config.url } : {},
-        config.token ? { NTFY_TOKEN: config.token } : {}
+        config.token ? { NTFY_TOKEN: config.token } : {},
+        config.allowTopicOverride === true ? { NTFY_ALLOW_TOPIC_OVERRIDE: 'true' } : {},
+        config.allowUrlOverride === true ? { NTFY_ALLOW_URL_OVERRIDE: 'true' } : {}
       )
     })
   exampleConfig:
