@@ -67,6 +67,7 @@ The server includes intelligent features like automatic URL detection for creati
 - 🎨 **Rich Notifications**: Support for topic, title, priorities, emoji tags, and detailed messages
 - 🔍 **Notification Fetching**: Fetch and filter cached messages from your ntfy topics
 - 🎯 **Smart Action Links**: Automatically detects URLs in messages and creates view actions
+- 🔗 **Click URLs**: Choose the link that opens when the notification is tapped
 - 📄 **Intelligent Markdown**: Auto-detects and enables markdown formatting when present
 - 🔒 **Secure**: Optional authentication with access tokens
 - 🔑 **Input Masking**: Securely store your ntfy token in your vs config!
@@ -74,7 +75,6 @@ The server includes intelligent features like automatic URL detection for creati
 
 #### Coming soon...
 - 📨 **Email**: Send notifications to email (requires ntfy email server configuration)
-- 🔗 **Click urls**: Ability to customize click urls
 - 🖼️ **Image urls**: Intelligent image url detection to automatically include image urls in messages and notifications
 - 🏁 and more!
 
@@ -634,6 +634,12 @@ TypeScript typing.",
 }</code></pre>
         </details>
       </td>
+    </tr>
+    <tr>
+      <td valign="top"><code>click</code></td>
+      <td valign="top">Link opened when the notification itself is tapped (ntfy's <a href="https://docs.ntfy.sh/publish/#click-action">click action</a>). Must be <code>http://</code>, <code>https://</code>, <code>mailto:</code>, <code>geo:</code> or <code>ntfy://</code>, without embedded credentials. A blank value counts as not provided</td>
+      <td valign="top">No</td>
+      <td valign="top"><code>{ "click": "https://github.com/user/repo/actions/runs/123" }</code></td>
     </tr>
   </tbody>
 </table>

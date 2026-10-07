@@ -88,6 +88,7 @@ export interface NtfyMessage {
     tags?: string[];
     content_type?: string;
     actions?: Array<{ action: string; label: string; url?: string }>;
+    click?: string;
 }
 
 /** Reads a topic through ntfy's own API, independently of the server under test. */

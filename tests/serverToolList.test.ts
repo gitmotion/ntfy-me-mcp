@@ -11,7 +11,7 @@ const entry = join(dirname(fileURLToPath(import.meta.url)), "..", "build", "inde
 type JsonRpcResponse = {
     id: number;
     result?: {
-        tools?: Array<{ name: string; inputSchema: { properties: Record<string, { enum?: string[] }> } }>;
+        tools?: Array<{ name: string; inputSchema: { properties: Record<string, { enum?: string[]; type?: string; anyOf?: unknown }> } }>;
         isError?: boolean;
         content?: Array<{ text: string }>;
     };
@@ -137,6 +137,30 @@ describe("server tool list and destination overrides (#21)", () => {
             expect(tools[name]).toContain("url");
             expect(tools[name]).not.toContain("topic");
         }
+    });
+});
+
+describe("server tool list: click (#26)", () => {
+    it("offers click on ntfy_me as a plain string and rejects a disallowed link with the fixed message", async () => {
+        const tools = await listTools({});
+        const click = tools.find((tool) => tool.name === "ntfy_me")?.inputSchema.properties.click;
+
+        expect(click?.type).toBe("string");
+        expect(click?.anyOf).toBeUndefined();
+        expect(Object.keys(tools.find((tool) => tool.name === "ntfy_me_fetch")?.inputSchema.properties ?? {})).not.toContain("click");
+
+        const { responses } = await exchange({}, [
+            {
+                method: "tools/call",
+                params: { name: "ntfy_me", arguments: { title: "T", message: "m", click: "javascript:alert('injected')" } },
+            },
+        ]);
+        const result = responses.get(2)?.result;
+        expect(result?.isError).toBe(true);
+        expect(result?.content?.[0].text).toContain(
+            "Invalid click url: only http://, https://, mailto:, geo: and ntfy:// links are supported."
+        );
+        expect(result?.content?.[0].text).not.toContain("injected");
     });
 });
 

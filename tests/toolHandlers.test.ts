@@ -280,6 +280,48 @@ describe("createToolHandlers", () => {
         });
     });
 
+    describe("click (#26)", () => {
+        it.each([
+            ["https://example.com/run/1", "https://example.com/run/1"],
+            ["http://example.com", "http://example.com"],
+            ["mailto:someone@example.com", "mailto:someone@example.com"],
+            ["geo:37.7749,-122.4194", "geo:37.7749,-122.4194"],
+            ["ntfy://ntfy.sh/mytopic", "ntfy://ntfy.sh/mytopic"],
+            ["  https://example.com/padded\t", "https://example.com/padded"],
+        ])("sends click %j as X-Click %j", async (click, expected) => {
+            mockFetch.mockResolvedValueOnce(createResponse());
+
+            const { handleNotifyTool } = buildHandlers();
+            await handleNotifyTool({ title: "T", message: "m", topic: undefined, priority: "default", click });
+
+            const headers = mockFetch.mock.calls[0][1]?.headers as Record<string, string>;
+            expect(headers["X-Click"]).toBe(expected);
+        });
+
+        it.each([undefined, "", "   "])("sends no X-Click for click %j", async (click) => {
+            mockFetch.mockResolvedValueOnce(createResponse());
+
+            const { handleNotifyTool } = buildHandlers();
+            await handleNotifyTool({ title: "T", message: "m", topic: undefined, priority: "default", click });
+
+            expect(mockFetch.mock.calls[0][1]?.headers).not.toHaveProperty("X-Click");
+        });
+
+        it.each(["javascript:alert(1)", "https://alice:SECRET@example.com"])(
+            "rejects click %s before sending anything, with a fixed message",
+            async (click) => {
+                const { handleNotifyTool } = buildHandlers();
+                const result = await handleNotifyTool({ title: "T", message: "m", topic: undefined, priority: "default", click });
+
+                expect(result.isError).toBe(true);
+                expect(String(result.structuredContent?.error)).toMatch(/^Invalid click url: /);
+                expect(String(result.structuredContent?.error)).not.toContain("SECRET");
+                expect(String(result.structuredContent?.error)).not.toContain("alert");
+                expect(mockFetch).not.toHaveBeenCalled();
+            }
+        );
+    });
+
     describe("topic override (#21)", () => {
         it("ignores a per-call topic and uses NTFY_TOPIC when overrides are not allowed (default)", async () => {
             mockFetch.mockResolvedValueOnce(createResponse());

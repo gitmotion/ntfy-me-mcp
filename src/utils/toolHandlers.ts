@@ -14,6 +14,7 @@ import {
     isSameOrigin,
     sanitizeErrorMessage,
     validateNtfyTopic,
+    validateClickUrl,
     validateNtfyUrl,
     validateViewActions,
 } from "./validation.js";
@@ -129,6 +130,7 @@ export function createToolHandlers(config: ToolHandlerConfig = {}) {
         tags,
         markdown,
         actions,
+        click,
     }: NotifyToolInput) {
         try {
             const url = resolveUrl(customUrl);
@@ -168,6 +170,13 @@ export function createToolHandlers(config: ToolHandlerConfig = {}) {
 
             if (viewActions.length > 0) {
                 headers["X-Actions"] = encodeHeaderValue(JSON.stringify(viewActions));
+            }
+
+            // Blank means not provided; otherwise validated like the schema does (#26).
+            const clickUrl = click?.trim();
+            if (clickUrl) {
+                validateClickUrl(clickUrl);
+                headers["X-Click"] = encodeHeaderValue(clickUrl);
             }
 
             const cleanEndpoint = endpoint.trim();
