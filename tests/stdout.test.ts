@@ -8,8 +8,10 @@ import { afterEach, describe, expect, it } from "vitest";
 // Spawns the compiled server (CI runs `npm run build` before `npm test`).
 const testsDir = dirname(fileURLToPath(import.meta.url));
 const entry = join(testsDir, "..", "build", "index.js");
-// `node --import` preload that reports any use of process.stdin on stderr.
+// `node --import` preload that reports any read of stdin on stderr (see the fixture).
 const STDIN_TRAP = ["--import", pathToFileURL(join(testsDir, "fixtures", "stdin-trap.mjs")).href];
+const STDIN_TRAP_LOADED = "STDIN_TRAP_LOADED";
+const STDIN_TOUCHED = "STDIN_TOUCHED";
 
 async function startAndStop(cwd: string, env: Record<string, string>, nodeArgs: string[] = []) {
     const child = spawn(process.execPath, [...nodeArgs, entry], {
@@ -119,7 +121,8 @@ describe("an unresolved ${input:…} NTFY_TOKEN", () => {
         expect(result.exitedOnItsOwn).toBe(true);
         expect(result.exitCode).toBe(1);
         expect(result.stderr).toContain("NTFY_TOKEN is an unresolved ${input:…} reference");
-        expect(result.stderr).not.toContain("STDIN_TOUCHED");
+        expect(result.stderr).toContain(STDIN_TRAP_LOADED);
+        expect(result.stderr).not.toContain(STDIN_TOUCHED);
         expect(result.stderr).not.toContain("running on stdio");
     });
 
@@ -136,7 +139,8 @@ describe("an unresolved ${input:…} NTFY_TOKEN", () => {
         expect(stderr).toContain("Using configured access token for http://127.0.0.1:9/real_token");
         expect(stderr).not.toContain("tk_literaltoken");
         // Control for the test above: the trap does detect a real reader.
-        expect(stderr).toContain("STDIN_TOUCHED");
+        expect(stderr).toContain(STDIN_TRAP_LOADED);
+        expect(stderr).toContain(STDIN_TOUCHED);
     });
 });
 
