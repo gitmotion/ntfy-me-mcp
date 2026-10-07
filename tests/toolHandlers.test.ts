@@ -107,7 +107,7 @@ describe("createToolHandlers", () => {
                 success: false,
             });
             expect(result.structuredContent.error).toMatch(
-                /Invalid url: unsupported scheme "ftp:"/
+                /Invalid url: unsupported scheme\. Only http:\/\/ and https:\/\/ URLs are supported\./
             );
             expect(mockFetch).not.toHaveBeenCalled();
         });
@@ -1052,7 +1052,7 @@ describe("createToolHandlers", () => {
                 success: false,
             });
             expect(result.structuredContent.error).toMatch(
-                /Invalid url: unsupported scheme "javascript:"/
+                /Invalid url: unsupported scheme\. Only http:\/\/ and https:\/\/ URLs are supported\./
             );
             expect(mockFetchMessages).not.toHaveBeenCalled();
         });

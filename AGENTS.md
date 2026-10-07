@@ -40,7 +40,7 @@ Before you finish, run `npm run build`, `npm run typecheck` and `npm test`, and 
 
 ```
 src/
-  index.ts                 startup: env loading, unresolved-token check (exits), tool registration, stdio transport
+  index.ts                 startup: env loading, NTFY_TOPIC/NTFY_URL validation and unresolved-token check (both exit), tool registration, stdio transport
   schemas/                 Zod schemas, one per domain object or tool input
     notifyTool.schema.ts     ntfy_me input
     fetchTool.schema.ts      ntfy_me_fetch input
@@ -106,7 +106,7 @@ The compiled `build/` directory is checked in. When you change anything under `s
   - `tests/actions.test.ts`, `tests/markdown.test.ts`: the detection utilities
   - `tests/serverToolList.test.ts`: spawns the built server; env → tool-schema wiring (overrides, allowlist)
   - `tests/e2e/*.e2e.test.ts`: end to end over MCP stdio against Docker ntfy, asserted through ntfy's own API (helpers in `tests/e2e/helpers.ts`, containers in `tests/e2e/docker.ts`)
-  - `tests/stdout.test.ts`: spawns the built server; stdout stays JSON-RPC-only, an unresolved `${input:…}` `NTFY_TOKEN` exits without touching stdin or stdout, `./.env` is loaded (as UTF-8), and no `DOTENV_*` variable can override the client's env or change which file is read
+  - `tests/stdout.test.ts`: spawns the built server; stdout stays JSON-RPC-only, an unresolved `${input:…}` `NTFY_TOKEN` exits without touching stdin or stdout, an invalid `NTFY_TOPIC` / `NTFY_URL` exits before `NTFY_URL` is logged, `./.env` is loaded (as UTF-8), and no `DOTENV_*` variable can override the client's env or change which file is read
 - Any change to tool handlers, schemas, validation or fetch parsing needs new or updated tests in the matching file.
 - `npm run typecheck` also type-checks the tests (`tsconfig.test.json`); keep it clean.
 

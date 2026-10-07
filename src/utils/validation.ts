@@ -29,7 +29,7 @@ export function validateNtfyUrl(url: string, fieldName = "ntfyUrl"): void {
 
     if (parsed.protocol !== "https:" && parsed.protocol !== "http:") {
         throw new Error(
-            `Invalid ${fieldName}: unsupported scheme "${parsed.protocol}". Only http:// and https:// URLs are supported.`
+            `Invalid ${fieldName}: unsupported scheme. Only http:// and https:// URLs are supported.`
         );
     }
 }
@@ -212,6 +212,7 @@ export function sanitizeErrorMessage(
             error.message.startsWith("Invalid url:") ||
             error.message.startsWith("Invalid ntfyUrl:") ||
             error.message.startsWith("Invalid ntfy URL:") ||
+            error.message.startsWith("Invalid NTFY_URL:") ||
             error.message.startsWith("Invalid topic:") ||
             error.message.startsWith("Invalid ntfyTopic:") ||
             error.message.startsWith("Invalid NTFY_TOPIC:") ||
@@ -255,3 +256,29 @@ export function validateAccessToken(token: string): string {
 
     return trimmedToken;
 }
+
+/**
+ * Validates the startup environment configuration (NTFY_TOPIC and NTFY_URL).
+ * Fails fast with clear error messages before connecting or logging configuration.
+ *
+ * @param topic The NTFY_TOPIC environment variable
+ * @param url The NTFY_URL environment variable (defaults to https://ntfy.sh)
+ * @returns The validated topic and url
+ * @throws Error if topic is missing/invalid or url is invalid
+ */
+export function validateStartupConfig(
+    topic: string | undefined,
+    url: string = "https://ntfy.sh"
+): { topic: string; url: string } {
+    if (!topic) {
+        throw new Error(
+            "NTFY_TOPIC environment variable is required. Please ensure it's added to your .env file or passed as an environment variable."
+        );
+    }
+
+    const validatedTopic = validateNtfyTopic(topic, "NTFY_TOPIC");
+    validateNtfyUrl(url, "NTFY_URL");
+
+    return { topic: validatedTopic, url };
+}
+

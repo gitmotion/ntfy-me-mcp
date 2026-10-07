@@ -780,6 +780,7 @@ Both tools return human-readable `content` for the model and a machine-readable 
 ntfy-me-mcp treats every tool argument as untrusted, because it comes from a model that may have read prompt-injected content.
 
 - **URLs:** only `http://` and `https://` server URLs are accepted, from both the `url` argument and `NTFY_URL`. URLs with embedded credentials (`https://user:pass@…`) are rejected; use `NTFY_TOKEN` or `accessToken`.
+- **Startup checks:** a missing or invalid `NTFY_TOPIC`, or an invalid `NTFY_URL` (not http(s), or containing `user:pass@`), stops the server at startup. The error names the variable and is written to stderr, which your MCP client shows in its server log. The server checks these before logging `NTFY_URL`, so embedded credentials never reach the log.
 - **Tokens and logs:** access tokens must be printable ASCII without spaces. Errors are written to stderr with bearer values and URL credentials redacted.
 - **Topics:** letters, numbers, `_` and `-` only, up to 128 characters.
 - **Error messages:** only a fixed set of known-safe messages reaches the model. Everything else is replaced with a generic message, so attacker-controlled text is never reflected back (see [#13](https://github.com/gitmotion/ntfy-me-mcp/issues/13)).
