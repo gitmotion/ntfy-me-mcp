@@ -284,7 +284,7 @@ describe("fetchMessages", () => {
             fetchMessages({
                 url: "https://ntfy.sh",
                 topic: "alerts",
-                priorities: 3 as unknown as string | string[],
+                priorities: 3 as unknown as Parameters<typeof fetchMessages>[0]["priorities"],
             })
         ).rejects.toThrow();
 

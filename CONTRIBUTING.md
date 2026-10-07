@@ -37,7 +37,7 @@ A docs-only change should leave `build/` untouched. `git status` after `npm run 
 
 - Add tests for new functionality.
 - Update existing tests when changing functionality, validation rules, schemas, or parsing behavior.
-- Prefer mocked tests over live ntfy calls in the automated suite.
+- The unit suite (`npm test`) mocks the network. Behaviour that only a real server shows (header encoding, auth, routing) belongs in the end-to-end suite (`npm run test:e2e`), which runs ntfy in Docker. Never call the public ntfy.sh from tests.
 - Put tests in the file that mirrors the source concern:
 
 | Test file | Covers |
@@ -48,16 +48,19 @@ A docs-only change should leave `build/` untouched. `git status` after `npm run 
 | `tests/*Schema.test.ts` | Zod schema behavior |
 | `tests/actions.test.ts`, `tests/markdown.test.ts` | URL → view-action and markdown detection |
 | `tests/stdout.test.ts` | Spawns `build/index.js` (run `npm run build` first): stdout hygiene, the unresolved `${input:…}` token exit, `./.env` loading, and dotenv option pinning |
+| `tests/serverToolList.test.ts` | Spawns `build/index.js`: env → tool-schema wiring (topic/url overrides, `NTFY_TOPICS_ALLOWLIST`) |
+| `tests/e2e/*.e2e.test.ts` | **End to end** (`npm run test:e2e`, needs Docker and a build): the built server over MCP stdio against real ntfy servers, checked through ntfy's own API. Publishing, non-ASCII, markdown/actions, fetch filters, auth, destination control |
 
 ## Local Validation
 
-- Type-check quickly with `npm run typecheck` while you work.
+- Type-check quickly with `npm run typecheck` while you work. It checks `src/` and the tests (`tsconfig.test.json`).
 - Build the project with `npm run build`, which also type-checks.
 - Run the test suite before submitting changes with `npm test`.
+- If you touched request building, headers, auth or routing, also run `npm run build && npm run test:e2e`. It starts two ntfy containers (`binwiederhier/ntfy:v2.28.0`, or `NTFY_E2E_IMAGE`) on free loopback ports and removes them afterwards.
 - Run the server locally with `npm start` or `node build/index.js` (requires `NTFY_TOPIC`, e.g. from a `.env` file).
 - Ensure the code is clean, well documented, and consistent with the existing project style.
 
-CI (`.github/workflows/build-and-test.yml`) runs `npm ci`, `npm run build` and `npm test` on every push and pull request.
+CI (`.github/workflows/build-and-test.yml`) runs `npm ci`, `npm run build` and `npm test` on every push and pull request. CI doesn't run the e2e suite or the test type-check yet ([#49](https://github.com/gitmotion/ntfy-me-mcp/issues/49)), so run them locally.
 
 ## Releases
 
@@ -91,8 +94,8 @@ Contributors don't need to bump the version in their PRs.
     </tr>
     <tr>
       <td><code>npm run typecheck</code></td>
-      <td><code>tsc --noEmit</code></td>
-      <td>Runs TypeScript type-checking without emitting output. Use this for fast manual type-checking without triggering a full build.</td>
+      <td><code>tsc --noEmit &amp;&amp; tsc -p tsconfig.test.json</code></td>
+      <td>Type-checks <code>src/</code> and the tests without emitting output. Use this for fast manual type-checking without triggering a full build.</td>
     </tr>
     <tr>
       <td><code>npm start</code></td>
@@ -102,7 +105,12 @@ Contributors don't need to bump the version in their PRs.
     <tr>
       <td><code>npm test</code></td>
       <td><code>vitest run</code></td>
-      <td>Runs the automated test suite once in non-watch mode.</td>
+      <td>Runs the unit suite once in non-watch mode (network mocked; <code>tests/e2e</code> excluded).</td>
+    </tr>
+    <tr>
+      <td><code>npm run test:e2e</code></td>
+      <td><code>vitest run --config vitest.e2e.config.ts</code></td>
+      <td>Runs the end-to-end suite against real ntfy servers in Docker. Needs Docker and <code>npm run build</code> first.</td>
     </tr>
   </tbody>
 </table>
