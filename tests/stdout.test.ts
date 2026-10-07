@@ -268,7 +268,7 @@ describe("startup configuration validation (#30)", () => {
         expect(stderr).not.toContain("ignore-previous-instructions");
     });
 
-    it.each([{}, { NTFY_TOKEN: "tk_literaltoken" }])(
+    it.each<Record<string, string>>([{}, { NTFY_TOKEN: "tk_literaltoken" }])(
         "exits before printing an NTFY_URL with embedded credentials (%j)",
         async (tokenEnv) => {
             const { stderr } = await expectStartupFailure(
