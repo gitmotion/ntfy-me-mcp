@@ -71,4 +71,17 @@ describe("authentication against a deny-all ntfy server", () => {
         expect(sent.isError).toBeFalsy();
         expect(await pollTopic(authNtfyUrl, topic, authToken)).toHaveLength(1);
     });
+
+    it("treats a blank accessToken as not provided and uses NTFY_TOKEN, for both tools (#38)", async () => {
+        const topic = uniqueTopic("e2e_blanktoken");
+        session = await connect({ NTFY_URL: authNtfyUrl, NTFY_TOPIC: topic, NTFY_TOKEN: authToken });
+
+        const sent = await callTool(session, "ntfy_me", { title: "Blank", message: "m", accessToken: "   " });
+        const fetched = await callTool(session, "ntfy_me_fetch", { since: "all", accessToken: "\t" });
+
+        expect(sent.isError).toBeFalsy();
+        expect(fetched.isError).toBeFalsy();
+        expect(fetched.structuredContent?.messageCount).toBe(1);
+        expect(await pollTopic(authNtfyUrl, topic, authToken)).toHaveLength(1);
+    });
 });
