@@ -51,10 +51,12 @@ jobs:
 
       - name: Check build/ is up to date
         id: build_drift
+        # --ignored too: .gitignore ignores build/Release, so output there
+        # would otherwise never show as missing.
         run: |
-          if [ -n "$(git status --porcelain -- build/)" ]; then
+          if [ -n "$(git status --porcelain --untracked-files=all --ignored -- build/)" ]; then
             echo "::error title=build/ is out of date::build/ is committed. Run npm run build and commit the build/ changes with your src/ change."
-            git status --short -- build/
+            git status --short --untracked-files=all --ignored -- build/
             git --no-pager diff --stat -- build/
             exit 1
           fi
@@ -70,8 +72,8 @@ jobs:
             echo "## Build and Test Summary"
             echo ""
             echo "**Status:** ${{ job.status }}"
-            echo "**Event:** ${{ github.event_name }}"
-            echo "**Ref:** ${{ github.ref }}"
+            echo "**Event:** $GITHUB_EVENT_NAME"
+            echo "**Ref:** $GITHUB_REF"
             echo "**Node Version:** 24"
             echo ""
             echo "| Step | Ran | Result |"
