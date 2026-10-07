@@ -32,7 +32,7 @@
     "ntfy-me-mcp": "build/index.js"
   },
   "engines": {
-    "node": ">=22"
+    "node": ">=24"
   },
   "files": [
     "build/**/*",
@@ -54,7 +54,7 @@
     "zod": "4.6.5"
   },
   "devDependencies": {
-    "@types/node": "22.20.5",
+    "@types/node": "24.19.1",
     "@vitest/coverage-v8": "5.0.3",
     "typescript": "7.0.2",
     "vitest": "5.0.3"

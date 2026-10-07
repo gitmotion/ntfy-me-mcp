@@ -141,7 +141,7 @@ The server includes intelligent features like automatic URL detection for creati
 
 Choose the config shape that matches your client. All examples below use `NTFY_TOPIC` as the required variable and keep the optional auth settings commented out until you need them.
 
-> **Requirements:** Node.js 22 or newer for the npx, global and local options. CI and the Docker image use Node 24. Node 18 and 20 are end-of-life and untested. The Docker option needs only Docker.
+> **Requirements:** Node.js 24 or newer for the npx, global and local options. CI and the Docker image use Node 24. Node 22 and earlier aren't supported (npm warns `EBADENGINE`). The Docker option needs only Docker.
 
 ### Configuration Examples
 

@@ -8,7 +8,7 @@
 
 ## Development Setup
 
-Requires Node.js 22 or newer. CI and the Docker image use Node 24.
+Requires Node.js 24 or newer, the version CI and the Docker image use.
 
 ```bash
 git clone https://github.com/gitmotion/ntfy-me-mcp.git
