@@ -103,6 +103,32 @@ describe("ntfy_me against a real ntfy server", () => {
         expect(await pollTopic(ntfyUrl, topic)).toEqual([]);
     });
 
+    it("rejects more than 3 actions and non-http(s) action links, echoing nothing and sending nothing (#29)", async () => {
+        const topic = uniqueTopic("e2e_actions");
+        session = await connect({ NTFY_URL: ntfyUrl, NTFY_TOPIC: topic });
+        const action = (url: string) => ({ action: "view", label: "Open", url });
+
+        const tooMany = await callTool(session, "ntfy_me", {
+            title: "T",
+            message: "m",
+            actions: [1, 2, 3, 4].map((n) => action(`https://example.com/${n}`)),
+        });
+        const badLink = await callTool(session, "ntfy_me", {
+            title: "T",
+            message: "m",
+            actions: [action("javascript:alert('injected')")],
+        });
+
+        for (const result of [tooMany, badLink]) {
+            expect(result.isError).toBe(true);
+            expect(result.content[0].text).toMatch(/^MCP error -32602: Input validation error/);
+        }
+        expect(badLink.content[0].text).toContain("Invalid action url: only http:// and https:// links are supported.");
+        expect(badLink.content[0].text).not.toContain("javascript");
+        expect(badLink.content[0].text).not.toContain("injected");
+        expect(await pollTopic(ntfyUrl, topic)).toEqual([]);
+    });
+
     it("reports a server that refuses the connection with a fixed message, leaking no details", async () => {
         // A port that was free a moment ago, so the connection is really refused
         // (port 9 would be blocked by fetch itself before any connection attempt).

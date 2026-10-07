@@ -5,7 +5,7 @@ import { validateAccessToken } from "./validation.js";
 import { detectMarkdown } from "./markdown.js";
 import { fetchMessages } from "./messages.js";
 import { processActions } from "./actions.js";
-import { isSameOrigin, sanitizeErrorMessage, validateNtfyTopic, validateNtfyUrl, } from "./validation.js";
+import { isSameOrigin, sanitizeErrorMessage, validateNtfyTopic, validateNtfyUrl, validateViewActions, } from "./validation.js";
 const logger = Logger.getInstance();
 // Normalizes a URL for the "is this the configured server?" warning check
 // (case of scheme/host, default ports, trailing slashes). Never used for routing.
@@ -96,6 +96,9 @@ export function createToolHandlers(config = {}) {
             }
             if (priority) {
                 headers.Priority = priority;
+            }
+            if (actions) {
+                validateViewActions(actions);
             }
             const viewActions = actions || processActions(message);
             const shouldUseMarkdown = markdown !== undefined ? markdown : detectMarkdown(message);

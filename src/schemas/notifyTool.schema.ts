@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { createOptionalDefaultedNtfyPrioritySchema } from "./ntfyPriority.schema.js";
 import { createAllowedTopicSchema, createOptionalNtfyTopicSchema } from "./ntfyTopic.schema.js";
+import { NTFY_MAX_ACTIONS } from "../utils/validation.js";
 import { viewActionSchema } from "./viewAction.schema.js";
 
 export const notifyToolInputSchema = z.object({
@@ -31,8 +32,11 @@ export const notifyToolInputSchema = z.object({
         .describe("Whether to format the message with Markdown support"),
     actions: z
         .array(viewActionSchema)
+        .max(NTFY_MAX_ACTIONS, `At most ${NTFY_MAX_ACTIONS} view actions are allowed per notification`)
         .optional()
-        .describe("Optional array of view actions to add to the notification"),
+        .describe(
+            "Optional array of view actions to add to the notification (max 3; each url must be http:// or https://)"
+        ),
 });
 
 // `topic` is optional because the tool is registered without it when topic

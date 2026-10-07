@@ -15,6 +15,7 @@ import {
     sanitizeErrorMessage,
     validateNtfyTopic,
     validateNtfyUrl,
+    validateViewActions,
 } from "./validation.js";
 
 const logger = Logger.getInstance();
@@ -150,6 +151,9 @@ export function createToolHandlers(config: ToolHandlerConfig = {}) {
                 headers.Priority = priority;
             }
 
+            if (actions) {
+                validateViewActions(actions);
+            }
             const viewActions = actions || processActions(message);
             const shouldUseMarkdown =
                 markdown !== undefined ? markdown : detectMarkdown(message);
