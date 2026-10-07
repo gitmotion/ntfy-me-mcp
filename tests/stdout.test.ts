@@ -47,6 +47,85 @@ async function startAndStop(cwd: string, env: Record<string, string>) {
     return { stdout, stderr };
 }
 
+// Starts the server like an MCP client does: writes the client's first message
+// and keeps stdin open. Waits up to 4 s for the server to exit on its own.
+async function runUntilExit(cwd: string, env: Record<string, string>, clientMessage: string) {
+    const child = spawn(process.execPath, [entry], {
+        cwd,
+        env: { PATH: process.env.PATH, ...env },
+        stdio: ["pipe", "pipe", "pipe"],
+    });
+
+    let stdout = "";
+    let stderr = "";
+    child.stdout.setEncoding("utf8");
+    child.stderr.setEncoding("utf8");
+    child.stdout.on("data", (chunk) => (stdout += chunk));
+    child.stderr.on("data", (chunk) => (stderr += chunk));
+    const closed = new Promise<void>((resolve) => child.once("close", () => resolve()));
+    child.stdin.write(clientMessage);
+
+    let timer: NodeJS.Timeout | undefined;
+    const exitedOnItsOwn = await Promise.race([
+        closed.then(() => true),
+        new Promise<boolean>((resolve) => (timer = setTimeout(() => resolve(false), 4000))),
+    ]);
+    clearTimeout(timer);
+    if (!exitedOnItsOwn) {
+        child.kill();
+        await closed;
+    }
+
+    return { exitedOnItsOwn, exitCode: child.exitCode, stdout, stderr };
+}
+
+const INITIALIZE_REQUEST =
+    JSON.stringify({
+        jsonrpc: "2.0",
+        id: 1,
+        method: "initialize",
+        params: { protocolVersion: "2025-06-18", capabilities: {}, clientInfo: { name: "test", version: "0" } },
+    }) + "\n";
+
+describe("an unresolved ${input:…} NTFY_TOKEN", () => {
+    let workDir: string | undefined;
+
+    afterEach(() => {
+        if (workDir) rmSync(workDir, { recursive: true, force: true });
+        workDir = undefined;
+    });
+
+    it("exits at startup with a clear error, writing nothing to stdout and leaving stdin unread", async () => {
+        workDir = mkdtempSync(join(tmpdir(), "ntfy-me-input-ref-"));
+
+        const result = await runUntilExit(
+            workDir,
+            { NTFY_TOPIC: "input_ref", NTFY_URL: "http://127.0.0.1:9", NTFY_TOKEN: "${input:ntfy_token}" },
+            INITIALIZE_REQUEST
+        );
+
+        expect(result.stdout).toBe("");
+        expect(result.exitedOnItsOwn).toBe(true);
+        expect(result.exitCode).toBe(1);
+        expect(result.stderr).toContain("NTFY_TOKEN is an unresolved ${input:…} reference");
+        expect(result.stderr).not.toContain("running on stdio");
+    });
+
+    it("leaves a real NTFY_TOKEN alone", async () => {
+        workDir = mkdtempSync(join(tmpdir(), "ntfy-me-real-token-"));
+
+        const { stdout, stderr } = await startAndStop(workDir, {
+            NTFY_TOPIC: "real_token",
+            NTFY_URL: "http://127.0.0.1:9",
+            NTFY_TOKEN: "tk_literaltoken",
+        });
+
+        expect(stdout).toBe("");
+        expect(stderr).toContain("Using configured access token for http://127.0.0.1:9/real_token");
+        expect(stderr).not.toContain("tk_literaltoken");
+    });
+});
+
 describe("dotenv can't interfere with the MCP channel or the client's config", () => {
     let workDir: string | undefined;
 

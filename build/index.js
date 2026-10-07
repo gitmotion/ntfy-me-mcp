@@ -2,7 +2,6 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import * as dotenv from "dotenv";
-import prompts from "prompts";
 import { fileURLToPath } from "url";
 import { dirname, join } from "path";
 import fs from "fs";
@@ -33,7 +32,7 @@ const NTFY_TOPIC = process.env.NTFY_TOPIC;
 const NTFY_URL = process.env.NTFY_URL || "https://ntfy.sh";
 const RAW_NTFY_TOKEN = process.env.NTFY_TOKEN?.trim() ?? "";
 const HAS_UNRESOLVED_TOKEN_INPUT = isUnresolvedInputReference(RAW_NTFY_TOKEN);
-let NTFY_TOKEN = HAS_UNRESOLVED_TOKEN_INPUT ? "" : RAW_NTFY_TOKEN;
+const NTFY_TOKEN = HAS_UNRESOLVED_TOKEN_INPUT ? "" : RAW_NTFY_TOKEN;
 const NTFY_ALLOW_TOPIC_OVERRIDE = parseBooleanEnv(process.env.NTFY_ALLOW_TOPIC_OVERRIDE);
 const NTFY_ALLOW_URL_OVERRIDE = parseBooleanEnv(process.env.NTFY_ALLOW_URL_OVERRIDE);
 const DESTINATION_POLICY = {
@@ -51,32 +50,13 @@ async function initializeServer() {
         logger.error("NTFY_TOPIC environment variable is required. Please ensure it's added to your .env file or passed as an environment variable.");
         process.exit(1);
     }
-    if (HAS_UNRESOLVED_TOKEN_INPUT && !NTFY_TOKEN) {
-        logger.info(`NTFY_TOKEN is configured as an input reference. Prompting for an access token for ${NTFY_URL}/${NTFY_TOPIC}.`);
-        try {
-            const response = await prompts({
-                type: "password",
-                name: "token",
-                message: `Enter access token for ${NTFY_URL}/${NTFY_TOPIC}:`,
-            }, {
-                onCancel: () => {
-                    logger.error("Authentication token is required for protected topics. Exiting.");
-                    process.exit(1);
-                },
-            });
-            NTFY_TOKEN = response.token || "";
-            if (!NTFY_TOKEN) {
-                logger.error("No token provided for protected topic. Exiting.");
-                process.exit(1);
-            }
-            logger.info("Token provided. Proceeding with authentication.");
-        }
-        catch (error) {
-            logger.error(`Error while prompting for token: ${error}`);
-            process.exit(1);
-        }
+    // stdin and stdout are the MCP JSON-RPC channel, so the server can't prompt
+    // for a token the client failed to substitute: say so and exit.
+    if (HAS_UNRESOLVED_TOKEN_INPUT) {
+        logger.error("NTFY_TOKEN is an unresolved ${input:…} reference: your MCP client passed the placeholder through instead of substituting your token. Set NTFY_TOKEN to the token itself (or to a reference your client resolves, such as an environment variable), or remove it for public topics. Exiting.");
+        process.exit(1);
     }
-    else if (NTFY_TOKEN) {
+    if (NTFY_TOKEN) {
         logger.info(`Using configured access token for ${NTFY_URL}/${NTFY_TOPIC}.`);
     }
     else {
