@@ -141,7 +141,7 @@ The server includes intelligent features like automatic URL detection for creati
 
 Choose the config shape that matches your client. All examples below use `NTFY_TOPIC` as the required variable and keep the optional auth settings commented out until you need them.
 
-> **Requirements:** Node.js 22 or newer for the npx, global and local options. CI and the Docker image use Node 24. Node 18 and 20 are end-of-life and untested. The Docker option needs only Docker.
+> **Requirements:** Node.js 24 or newer for the npx, global and local options. CI and the Docker image use Node 24. Node 22 and earlier aren't supported (npm warns `EBADENGINE`). The Docker option needs only Docker.
 
 ### Configuration Examples
 
@@ -412,7 +412,10 @@ Create a `.env` file by copying the example: `cp .env.example .env` — see [`.e
 | --- | --- | --- | --- |
 | `NTFY_TOPIC` | Yes | — | The ntfy topic to publish notifications to |
 | `NTFY_URL` | No | `https://ntfy.sh` | ntfy server URL — change this for self-hosted instances<br/>(include port if needed, e.g. `https://your-server.com:8443`) |
-| `NTFY_TOKEN` | No | — | Access token for protected topics or private servers |
+| `NTFY_TOKEN` | No | — | Access token for protected topics or private servers. Only ever sent to the `NTFY_URL` server |
+| `NTFY_ALLOW_TOPIC_OVERRIDE` | No | `false` | Set to `true` to let the agent choose a per-call `topic`. When off (the default), the `topic` parameter isn't offered to the agent and every notification and fetch uses `NTFY_TOPIC` |
+| `NTFY_TOPICS_ALLOWLIST` | No | — | Comma-separated topics you subscribe to, e.g. `alerts,builds,deploys`. When set, the agent may send to or fetch from `NTFY_TOPIC` or one of these topics, and no other topic. The `topic` parameter is offered as a list of exactly those topics. Takes precedence over `NTFY_ALLOW_TOPIC_OVERRIDE`. An invalid entry, or a value that lists no topics (e.g. `,`), stops the server at startup |
+| `NTFY_ALLOW_URL_OVERRIDE` | No | `false` | Set to `true` to let the agent choose a per-call server `url`. When off (the default), the `url` parameter isn't offered and every request goes to `NTFY_URL`. Even when on, `NTFY_TOKEN` is only sent to `NTFY_URL` |
 
 ### Authentication
 
@@ -472,7 +475,7 @@ This MCP server supports both authenticated and unauthenticated ntfy endpoints:
 | `inputs[].type` | `"promptString"` | Prompts the user for the token at runtime |
 
 
-> Your MCP client must resolve `"${input:ntfy_token}"` before it launches the server, as VS Code does, so the server receives the real token. If your client doesn't support `${input:…}` references (Claude Desktop, Claude Code, Codex and others), set `NTFY_TOKEN` to the real token or to an environment-variable reference your client does support. Don't pass the placeholder through unchanged: the server's built-in startup prompt for an unresolved reference currently breaks the MCP stdio connection (see [#28](https://github.com/gitmotion/ntfy-me-mcp/issues/28)).
+> Your MCP client must resolve `"${input:ntfy_token}"` before it launches the server, as VS Code does, so the server receives the real token. If your client doesn't support `${input:…}` references (Claude Desktop, Claude Code, Codex and others), set `NTFY_TOKEN` to the real token or to an environment-variable reference your client does support. If the placeholder reaches the server unresolved, the server can't ask you for the token (stdin and stdout carry the MCP connection), so it exits at startup with an error saying `NTFY_TOKEN is an unresolved ${input:…} reference`, which your client shows in its MCP server log.
 >
 > The `PROTECTED_TOPIC` env var was removed in `v1.4.0`. For protected topics, set `NTFY_TOKEN`, resolved by your client, instead.
 
@@ -536,7 +539,7 @@ TypeScript typing.",
   <tbody>
     <tr>
       <td valign="top"><code>title</code></td>
-      <td valign="top">The notification title</td>
+      <td valign="top">The notification title. Unicode and emoji are supported</td>
       <td valign="top">Yes</td>
       <td valign="top">—</td>
     </tr>
@@ -548,13 +551,13 @@ TypeScript typing.",
     </tr>
     <tr>
       <td valign="top"><code>url</code></td>
-      <td valign="top">Custom ntfy server URL</td>
+      <td valign="top">Custom ntfy server URL. <b>Only offered when <code>NTFY_ALLOW_URL_OVERRIDE=true</code></b>. <code>NTFY_TOKEN</code> is only sent to the <code>NTFY_URL</code> server; pass <code>accessToken</code> for another server</td>
       <td valign="top">No</td>
       <td valign="top"><i>Default: <code>NTFY_URL</code></i></td>
     </tr>
     <tr>
       <td valign="top"><code>topic</code></td>
-      <td valign="top">Custom ntfy topic</td>
+      <td valign="top">Custom ntfy topic. <b>Only offered when <code>NTFY_TOPICS_ALLOWLIST</code> is set (then limited to <code>NTFY_TOPIC</code> and those topics) or <code>NTFY_ALLOW_TOPIC_OVERRIDE=true</code></b>; otherwise every notification goes to <code>NTFY_TOPIC</code></td>
       <td valign="top">No</td>
       <td valign="top"><i>Default: <code>NTFY_TOPIC</code></i></td>
     </tr>
@@ -646,7 +649,7 @@ AI assistants understand various ways to request message fetching:
 "Get messages from the last hour"
 "Find notifications with title 'Build Complete'"
 "Search for messages with the test_tube tag"
-"Show notifications from the updates topic from the last 24hr"
+"Show notifications from the updates topic from the last 24hr"  # needs updates in NTFY_TOPICS_ALLOWLIST (or NTFY_ALLOW_TOPIC_OVERRIDE=true)
 "Check my latest alerts"
 ```
 
@@ -700,13 +703,13 @@ AI assistants understand various ways to request message fetching:
   <tbody>
     <tr>
       <td valign="top"><code>url</code></td>
-      <td valign="top">Custom ntfy server URL</td>
+      <td valign="top">Custom ntfy server URL. <b>Only offered when <code>NTFY_ALLOW_URL_OVERRIDE=true</code></b>. <code>NTFY_TOKEN</code> is only sent to the <code>NTFY_URL</code> server; pass <code>accessToken</code> for another server</td>
       <td valign="top">No</td>
       <td valign="top"><i>Default: <code>NTFY_URL</code></i></td>
     </tr>
     <tr>
       <td valign="top"><code>topic</code></td>
-      <td valign="top">Topic to fetch messages from</td>
+      <td valign="top">Topic to fetch messages from. <b>Only offered when <code>NTFY_TOPICS_ALLOWLIST</code> is set (limited to <code>NTFY_TOPIC</code> and those topics) or <code>NTFY_ALLOW_TOPIC_OVERRIDE=true</code></b></td>
       <td valign="top">No</td>
       <td valign="top"><i>Default: <code>NTFY_TOPIC</code></i><br/><br/><code>{ "topic": "updates", "since": "all" }</code></td>
     </tr>
@@ -770,17 +773,21 @@ Both tools return human-readable `content` for the model and a machine-readable 
 
 **Invalid arguments** (a missing `title`, a malformed `topic`, an unknown `priority`, …) are rejected by the MCP SDK's schema validation before the tool runs. They come back with `isError: true` and a text-only `MCP error -32602: Input validation error: …` message that names the field and the expected format, with no `structuredContent`.
 
-**Failures inside the tool** set `isError: true` and return `{ "success": false, "error": "<message>" }`. The error message is specific for an invalid `url` or `topic`, an authentication failure (HTTP 401/403), or a non-2xx status code (`... Status code: 500`). Anything else is reported generically (`Failed to send ntfy notification` / `Failed to fetch ntfy messages`), so raw input or server text is never echoed back to the model.
+**Failures inside the tool** set `isError: true` and return `{ "success": false, "error": "<message>" }`. The error message is specific for an invalid `url` or `topic`, an authentication failure (HTTP 401/403), a non-2xx status code (`... Status code: 500`), or a network failure, named with Node's error code: `... could not connect to the ntfy server (ECONNREFUSED)` when no connection was made, or `... the request to the ntfy server failed (ECONNRESET)` when it broke after connecting (the notification may have been delivered). Anything else is reported generically (`Failed to send ntfy notification` / `Failed to fetch ntfy messages`), so raw input or server text is never echoed back to the model. The full underlying error is written to the server's stderr log.
 
 ## Security
 
 ntfy-me-mcp treats every tool argument as untrusted, because it comes from a model that may have read prompt-injected content.
 
-- **URLs:** only `http://` and `https://` server URLs are accepted, from both the `url` argument and `NTFY_URL`.
+- **URLs:** only `http://` and `https://` server URLs are accepted, from both the `url` argument and `NTFY_URL`. URLs with embedded credentials (`https://user:pass@…`) are rejected; use `NTFY_TOKEN` or `accessToken`.
+- **Tokens and logs:** access tokens must be printable ASCII without spaces. Errors are written to stderr with bearer values and URL credentials redacted.
 - **Topics:** letters, numbers, `_` and `-` only, up to 128 characters.
 - **Error messages:** only a fixed set of known-safe messages reaches the model. Everything else is replaced with a generic message, so attacker-controlled text is never reflected back (see [#13](https://github.com/gitmotion/ntfy-me-mcp/issues/13)).
 - **Fetched messages are untrusted input.** `ntfy_me_fetch` hands message content to the model, and anyone who knows a public topic's name can publish to it. On ntfy.sh, use a hard-to-guess topic name, or a protected topic with an access token.
-- **Per-call overrides:** the `url`, `topic` and `accessToken` arguments override the configured defaults for a single call (see [#21](https://github.com/gitmotion/ntfy-me-mcp/issues/21)).
+- **Destination control:** by default, every notification and fetch goes to `NTFY_TOPIC` on `NTFY_URL`. The agent is never offered the `topic` or `url` parameters, so a prompt-injected call can't send your messages, or your topic name (which is effectively a password on public ntfy.sh), anywhere else (see [#21](https://github.com/gitmotion/ntfy-me-mcp/issues/21)).
+  - `NTFY_TOPICS_ALLOWLIST=alerts,builds` lets the agent choose among the topics you actually subscribe to, plus `NTFY_TOPIC`, and no other topic (see [#34](https://github.com/gitmotion/ntfy-me-mcp/issues/34)). Any other topic is rejected before a request is made, with no silent fallback. These topic names, **including `NTFY_TOPIC`**, appear in the tool schema, so the model and your MCP client can see them. Without an allowlist, the tool schema never contains a topic name. On public ntfy.sh, a topic name works like a password, so only use the allowlist with names you're comfortable sharing with them, or with protected topics.
+  - `NTFY_ALLOW_TOPIC_OVERRIDE=true` and `NTFY_ALLOW_URL_OVERRIDE=true` opt back in to any topic or server, independently. If `NTFY_TOPICS_ALLOWLIST` is also set, it wins over `NTFY_ALLOW_TOPIC_OVERRIDE`.
+  - Even with url overrides on, `NTFY_TOKEN` is only ever sent to the `NTFY_URL` server. Other servers get no credentials unless the call supplies its own `accessToken`.
 - **Tokens:** prefer your client's secret input (e.g. VS Code `${input:…}`) or an environment variable over hardcoding `NTFY_TOKEN` in a config file you share.
 
 Found a vulnerability? Please report it privately through [GitHub security advisories](https://github.com/gitmotion/ntfy-me-mcp/security/advisories/new) rather than in a public issue.
