@@ -27,6 +27,7 @@ export async function connect(env: Record<string, string>): Promise<McpSession> 
         throw new Error("e2e sessions need an explicit NTFY_URL");
     }
     const cwd = mkdtempSync(join(tmpdir(), "ntfy-me-e2e-"));
+    const removeCwd = () => rmSync(cwd, { recursive: true, force: true });
     const transport = new StdioClientTransport({
         command: process.execPath,
         args: [entry],
@@ -40,7 +41,12 @@ export async function connect(env: Record<string, string>): Promise<McpSession> 
     const errors: Error[] = [];
     const client = new Client({ name: "ntfy-me-e2e", version: "0.0.0" });
     client.onerror = (error) => errors.push(error);
-    await client.connect(transport);
+    try {
+        await client.connect(transport);
+    } catch (error) {
+        removeCwd();
+        throw error;
+    }
 
     return {
         client,
@@ -48,7 +54,7 @@ export async function connect(env: Record<string, string>): Promise<McpSession> 
         errors,
         close: async () => {
             await client.close();
-            rmSync(cwd, { recursive: true, force: true });
+            removeCwd();
         },
     };
 }

@@ -1,4 +1,4 @@
-import { execFileSync } from "node:child_process";
+import { spawn } from "node:child_process";
 import { randomBytes } from "node:crypto";
 import { existsSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -19,6 +19,16 @@ declare module "vitest" {
 
 const entry = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "build", "index.js");
 
+// Removes the named containers now and again after 15 s (a `docker run` that
+// was mid-create when the signal arrived has finished by then).
+const REAPER = `
+const { execFileSync } = require("node:child_process");
+const names = JSON.parse(process.argv[1]);
+const remove = () => { try { execFileSync("docker", ["rm", "-f", ...names], { stdio: "ignore" }); } catch {} };
+remove();
+setTimeout(remove, 15000);
+`;
+
 export default async function setup(project: TestProject) {
     if (!existsSync(entry)) {
         throw new Error("build/index.js is missing. Run `npm run build` before `npm run test:e2e`.");
@@ -30,19 +40,23 @@ export default async function setup(project: TestProject) {
     const open = `ntfy-me-e2e-open-${run}`;
     const auth = `ntfy-me-e2e-auth-${run}`;
 
-    // Ctrl-C / SIGTERM skip vitest's teardown, so remove the containers here.
-    const removeContainersNow = () => {
-        try {
-            execFileSync("docker", ["rm", "-f", open, auth], { stdio: "ignore" });
-        } catch {
-            // already gone
-        }
+    // Ctrl-C / SIGTERM skip vitest's teardown. The signal can arrive while a
+    // `docker run` is still creating a container, and a second Ctrl-C kills
+    // this process group (including any cleanup child), so hand the cleanup to
+    // a detached Node process that outlives the run and sweeps again later.
+    const reapContainers = () => {
+        spawn(process.execPath, ["-e", REAPER, JSON.stringify([open, auth])], {
+            detached: true,
+            stdio: "ignore",
+        })
+            .on("error", () => undefined)
+            .unref();
     };
-    process.once("SIGINT", removeContainersNow);
-    process.once("SIGTERM", removeContainersNow);
+    process.on("SIGINT", reapContainers);
+    process.on("SIGTERM", reapContainers);
     const stopAll = async () => {
-        process.off("SIGINT", removeContainersNow);
-        process.off("SIGTERM", removeContainersNow);
+        process.off("SIGINT", reapContainers);
+        process.off("SIGTERM", reapContainers);
         await Promise.all([stopNtfy(open), stopNtfy(auth)]);
     };
 
