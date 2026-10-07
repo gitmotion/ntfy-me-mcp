@@ -44,6 +44,7 @@
     "typecheck": "tsc --noEmit && tsc -p tsconfig.test.json",
     "start": "node build/index.js",
     "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
     "test:e2e": "vitest run --config vitest.e2e.config.ts"
   },
   "dependencies": {
@@ -54,6 +55,7 @@
   },
   "devDependencies": {
     "@types/node": "22.20.5",
+    "@vitest/coverage-v8": "5.0.3",
     "typescript": "7.0.2",
     "vitest": "5.0.3"
   },

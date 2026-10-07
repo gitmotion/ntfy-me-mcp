@@ -56,11 +56,13 @@ A docs-only change should leave `build/` untouched. `git status` after `npm run 
 - Type-check quickly with `npm run typecheck` while you work. It checks `src/` and the tests (`tsconfig.test.json`).
 - Build the project with `npm run build`, which also type-checks.
 - Run the test suite before submitting changes with `npm test`.
-- If you touched request building, headers, auth or routing, also run `npm run build && npm run test:e2e`. It starts two ntfy containers (`binwiederhier/ntfy:v2.28.0`, or `NTFY_E2E_IMAGE`) on free loopback ports and removes them afterwards. On Ctrl-C or SIGTERM a detached cleanup process removes them, then checks once more 15 s later in case one was still starting. If any are left (for example after SIGKILL), remove them with `docker ps -aq --filter label=ntfy-me-e2e | xargs -r docker rm -f` (works in bash and zsh, and does nothing when there's nothing to remove).
+- If you touched request building, headers, auth or routing, also run `npm run build && npm run test:e2e`. It starts two ntfy containers (`binwiederhier/ntfy:v2.28.0`, pinned by digest in `tests/e2e/docker.ts`, or `NTFY_E2E_IMAGE`) on free loopback ports and removes them afterwards. On Ctrl-C or SIGTERM a detached cleanup process removes them, then checks once more 15 s later in case one was still starting. If any are left (for example after SIGKILL), remove them with `docker ps -aq --filter label=ntfy-me-e2e | xargs -r docker rm -f` (works in bash and zsh, and does nothing when there's nothing to remove).
 - Run the server locally with `npm start` or `node build/index.js` (requires `NTFY_TOPIC`, e.g. from a `.env` file).
 - Ensure the code is clean, well documented, and consistent with the existing project style.
 
-CI (`.github/workflows/build-and-test.yml`) runs `npm ci`, `npm run build` and `npm test` on every push and pull request. CI doesn't run the e2e suite or the test type-check yet ([#49](https://github.com/gitmotion/ntfy-me-mcp/issues/49)), so run them locally.
+CI (`.github/workflows/build-and-test.yml`) runs on every push and pull request:
+- **`build-and-test`** type-checks `src/` and the tests (`npm run typecheck`), rebuilds `build/` from scratch and fails if it differs from the committed one (so commit `build/` with every `src/` change), and runs the unit suite with coverage (`npm run test:coverage`, at least 75% of `src/` on each metric). The job summary shows the coverage numbers.
+- **`e2e`** builds and runs the end-to-end suite against ntfy in Docker (`npm run test:e2e`).
 
 ## Releases
 
@@ -106,6 +108,11 @@ Contributors don't need to bump the version in their PRs.
       <td><code>npm test</code></td>
       <td><code>vitest run</code></td>
       <td>Runs the unit suite once in non-watch mode (network mocked; <code>tests/e2e</code> excluded).</td>
+    </tr>
+    <tr>
+      <td><code>npm run test:coverage</code></td>
+      <td><code>vitest run --coverage</code></td>
+      <td>Runs the unit suite with coverage of <code>src/</code>, as CI does. Fails below 75% on any metric.</td>
     </tr>
     <tr>
       <td><code>npm run test:e2e</code></td>

@@ -23,10 +23,15 @@ Configuration comes from env vars (`NTFY_TOPIC` required; `NTFY_URL` defaults to
 | `npm run build` | `tsc` → `build/`, then `chmod +x build/index.js`. Also a full type-check |
 | `npm run typecheck` | Fast type-check of `src/` and the tests (`tsconfig.test.json`) without emitting |
 | `npm test` | Vitest unit suite, single run (`vitest run`). Mocked, no network; `tests/e2e` excluded. `tests/stdout.test.ts` and `tests/serverToolList.test.ts` spawn `build/index.js`, so build first |
+| `npm run test:coverage` | The unit suite with v8 coverage of `src/` (what CI runs). Fails below 75% on any metric (`vitest.config.ts`) |
 | `npm run test:e2e` | End-to-end suite (`vitest.e2e.config.ts`): `build/index.js` over MCP stdio against real ntfy servers that `tests/e2e/globalSetup.ts` runs in Docker. Needs Docker and a build |
 | `npm start` | Run the built server on stdio (`node build/index.js`). Needs `NTFY_TOPIC` |
 
-CI (`.github/workflows/build-and-test.yml`) runs `npm ci && npm run build && npm test` on Node 24 for every push and pull request. Run the same three before you finish, plus `npm run typecheck`, and `npm run test:e2e` when you change request building, headers, auth or routing (CI doesn't run those two yet: #49).
+CI (`.github/workflows/build-and-test.yml`) runs on Node 24 for every push and pull request, in two jobs:
+- **`build-and-test`** (the publish workflows wait on this name; don't rename it): `npm ci`, `npm run typecheck`, a build into an empty `build/` that fails if the result differs from the committed `build/`, then `npm run test:coverage`.
+- **`e2e`**: `npm ci`, `npm run build`, `npm run test:e2e` (Docker on the runner).
+
+Before you finish, run `npm run build`, `npm run typecheck` and `npm test`, and `npm run test:e2e` when you change request building, headers, auth or routing.
 
 - Use `npm test`. Bare `npx vitest` starts watch mode and never exits in a non-interactive shell.
 - To exercise the built server end to end, never point it at the public `ntfy.sh` from scripts or tests. Run a local mock HTTP server, or a local ntfy container (`docker run --rm -p 8080:80 binwiederhier/ntfy serve`), and pass its URL to the server explicitly, e.g. `npx @modelcontextprotocol/inspector --cli node build/index.js -e NTFY_URL=http://127.0.0.1:8080 -e NTFY_TOPIC=test --method tools/list`. The Inspector (v2, the current `npx` default) does **not** forward your shell environment to the server, so variables set in front of the command are ignored. The server then either exits because `NTFY_TOPIC` is missing, or silently uses a `.env` in the working directory, whose `NTFY_URL` may be, or default to, `https://ntfy.sh`. Always use `-e`.

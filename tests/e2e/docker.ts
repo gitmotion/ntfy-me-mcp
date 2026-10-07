@@ -3,8 +3,10 @@ import { promisify } from "node:util";
 
 const execFileAsync = promisify(execFile);
 
-// Pinned for reproducible runs; override with NTFY_E2E_IMAGE to test another ntfy.
-export const NTFY_IMAGE = process.env.NTFY_E2E_IMAGE || "binwiederhier/ntfy:v2.28.0";
+// Pinned by tag and digest (the multi-arch index), so a re-pushed tag can't
+// change what runs; override with NTFY_E2E_IMAGE to test another ntfy.
+export const NTFY_IMAGE = process.env.NTFY_E2E_IMAGE
+    || "binwiederhier/ntfy:v2.28.0@sha256:6ef4b819f722fccdc036af611c4774cfdc2de821ab74fdd48bbf4c9d6f8973da";
 
 // Every request in a run comes from one visitor (the Docker gateway), so lift
 // ntfy's per-visitor limits for the test containers. Each test uses fresh
