@@ -3,6 +3,7 @@ import { fetchToolInputSchema } from "../src/schemas/fetchTool.schema.js";
 import { notifyToolInputSchema } from "../src/schemas/notifyTool.schema.js";
 import {
     isSameOrigin,
+    hasUnresolvedPlaceholder,
     isUnresolvedInputReference,
     validateNtfyTopic,
     validateNtfyUrl,
@@ -347,6 +348,23 @@ describe("isUnresolvedInputReference", () => {
         expect(isUnresolvedInputReference(undefined)).toBe(false);
         expect(isUnresolvedInputReference(null)).toBe(false);
     });
+});
+
+// #46: any ${…} the MCP client didn't substitute. A real ntfy token never contains "${".
+describe("hasUnresolvedPlaceholder (#46)", () => {
+    it.each(["${env:NTFY_TOKEN}", "${NTFY_TOKEN}", "${input:}", "tk_abc${SUFFIX}", "  ${X}  ", "${unclosed"])(
+        "detects %j",
+        (value) => {
+            expect(hasUnresolvedPlaceholder(value)).toBe(true);
+        }
+    );
+
+    it.each(["tk_abcdefghijklmnopqrstuvwxyz123", "$NTFY_TOKEN", "real-token-value", "", undefined, null])(
+        "returns false for %j",
+        (value) => {
+            expect(hasUnresolvedPlaceholder(value)).toBe(false);
+        }
+    );
 });
 
 describe("isSameOrigin", () => {

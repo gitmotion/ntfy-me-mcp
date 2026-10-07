@@ -94,6 +94,17 @@ export function isUnresolvedInputReference(value) {
     return /^\$\{input:[^}]+\}$/.test(value.trim());
 }
 /**
+ * Detects an unresolved `${…}` placeholder anywhere in a value (#46), such as
+ * `${env:NTFY_TOKEN}` or `${NTFY_TOKEN}`: the MCP client passed the placeholder
+ * text instead of substituting it. A real ntfy token never contains "${".
+ *
+ * @param value The value to check (e.g. NTFY_TOKEN)
+ * @returns True when the value contains "${"
+ */
+export function hasUnresolvedPlaceholder(value) {
+    return Boolean(value?.includes("${"));
+}
+/**
  * Validates that an ntfy topic uses only a conservative set of URL-safe characters.
  *
  * @param topic The topic value to validate
