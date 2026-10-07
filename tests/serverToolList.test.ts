@@ -38,7 +38,9 @@ async function exchange(extraEnv: Record<string, string>, requests: Array<{ meth
     const child = spawnServer(extraEnv);
 
     try {
-        return await new Promise<Map<number, JsonRpcResponse>>((resolve, reject) => {
+        let stderr = "";
+        child.stderr.on("data", (chunk) => (stderr += chunk));
+        const responses = await new Promise<Map<number, JsonRpcResponse>>((resolve, reject) => {
             const responses = new Map<number, JsonRpcResponse>();
             let buffer = "";
             const timer = setTimeout(() => reject(new Error("missing JSON-RPC responses")), 4000);
@@ -65,13 +67,14 @@ async function exchange(extraEnv: Record<string, string>, requests: Array<{ meth
             send({ jsonrpc: "2.0", method: "notifications/initialized" });
             requests.forEach((request, index) => send({ jsonrpc: "2.0", id: index + 2, ...request }));
         });
+        return { responses, stderr };
     } finally {
         child.kill();
     }
 }
 
 async function listTools(extraEnv: Record<string, string>) {
-    const responses = await exchange(extraEnv, [{ method: "tools/list" }]);
+    const { responses } = await exchange(extraEnv, [{ method: "tools/list" }]);
     return responses.get(2)?.result?.tools ?? [];
 }
 
@@ -133,7 +136,7 @@ describe("server tool list and destination overrides (#21)", () => {
 
 describe("server tool list and the topic allowlist (#34)", () => {
     it("offers topic as an enum of NTFY_TOPIC plus NTFY_TOPICS_ALLOWLIST on both tools", async () => {
-        const tools = await listTools({ NTFY_TOPICS_ALLOWLIST: " alerts, builds ,alerts" });
+        const tools = await listTools({ NTFY_TOPIC: " tool_list_probe ", NTFY_TOPICS_ALLOWLIST: " alerts, builds ,alerts" });
 
         for (const name of ["ntfy_me", "ntfy_me_fetch"]) {
             const tool = tools.find((candidate) => candidate.name === name);
@@ -142,16 +145,31 @@ describe("server tool list and the topic allowlist (#34)", () => {
         }
     });
 
-    it("keeps the enum when NTFY_ALLOW_TOPIC_OVERRIDE is also set", async () => {
-        const tools = await listTools({ NTFY_TOPICS_ALLOWLIST: "alerts", NTFY_ALLOW_TOPIC_OVERRIDE: "true" });
+    it("keeps the enum when NTFY_ALLOW_TOPIC_OVERRIDE is also set, and says the override is ignored", async () => {
+        const { responses, stderr } = await exchange(
+            { NTFY_TOPICS_ALLOWLIST: "alerts", NTFY_ALLOW_TOPIC_OVERRIDE: "true" },
+            [{ method: "tools/list" }]
+        );
 
-        for (const tool of tools) {
+        for (const tool of responses.get(2)?.result?.tools ?? []) {
             expect(tool.inputSchema.properties.topic?.enum).toEqual(["tool_list_probe", "alerts"]);
         }
+        expect(stderr).toContain("NTFY_TOPICS_ALLOWLIST is set, so NTFY_ALLOW_TOPIC_OVERRIDE is ignored");
+    });
+
+    it("routes an allowlisted topic to that topic for both tools (no fallback to NTFY_TOPIC)", async () => {
+        const { stderr } = await exchange({ NTFY_TOPICS_ALLOWLIST: "alerts" }, [
+            { method: "tools/call", params: { name: "ntfy_me", arguments: { title: "T", message: "m", topic: "alerts" } } },
+            { method: "tools/call", params: { name: "ntfy_me_fetch", arguments: { topic: "alerts" } } },
+        ]);
+
+        expect(stderr).toContain("Sending notification to http://127.0.0.1:9/alerts");
+        expect(stderr).toContain("Fetching messages for topic alerts");
+        expect(stderr).not.toContain("Ignoring the per-call topic");
     });
 
     it("rejects a topic outside the allowlist over MCP before any request is made", async () => {
-        const responses = await exchange({ NTFY_TOPICS_ALLOWLIST: "alerts" }, [
+        const { responses } = await exchange({ NTFY_TOPICS_ALLOWLIST: "alerts" }, [
             { method: "tools/call", params: { name: "ntfy_me", arguments: { title: "T", message: "m", topic: "unfollowed_topic" } } },
             { method: "tools/call", params: { name: "ntfy_me_fetch", arguments: { topic: "unfollowed_topic" } } },
         ]);
@@ -169,7 +187,7 @@ describe("server tool list and the topic allowlist (#34)", () => {
 
         expect(exitCode).toBe(1);
         expect(stdout).toBe("");
-        expect(stderr).toContain("Invalid NTFY_TOPICS_ALLOWLIST: topic may only contain");
+        expect(stderr).toContain("Invalid NTFY_TOPICS_ALLOWLIST entry 2: topic may only contain");
         expect(stderr).not.toContain("running on stdio");
     });
 });

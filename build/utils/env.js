@@ -18,13 +18,21 @@ export function parseBooleanEnv(value) {
  *
  * @param value The raw environment variable value
  * @returns The allowed topics, or an empty array when unset or blank
- * @throws Error starting with "Invalid NTFY_TOPICS_ALLOWLIST:" for an invalid entry
+ * @throws Error starting with "Invalid NTFY_TOPICS_ALLOWLIST" when an entry is
+ * invalid (naming its 1-based position, never its value) or when the value is
+ * set but lists no topics (e.g. ",,"), which would otherwise mean "no allowlist"
  */
 export function parseTopicAllowlist(value) {
-    const topics = (value ?? "")
+    if (!value?.trim()) {
+        return [];
+    }
+    const topics = value
         .split(",")
-        .map((entry) => entry.trim())
-        .filter(Boolean)
-        .map((entry) => validateNtfyTopic(entry, "NTFY_TOPICS_ALLOWLIST"));
+        .map((entry, index) => ({ entry: entry.trim(), position: index + 1 }))
+        .filter(({ entry }) => entry)
+        .map(({ entry, position }) => validateNtfyTopic(entry, `NTFY_TOPICS_ALLOWLIST entry ${position}`));
+    if (topics.length === 0) {
+        throw new Error("Invalid NTFY_TOPICS_ALLOWLIST: no topics listed.");
+    }
     return [...new Set(topics)];
 }

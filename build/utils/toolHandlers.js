@@ -24,7 +24,7 @@ export function createToolHandlers(config = {}) {
     const getDefaultToken = parsedConfig.getDefaultToken ?? (() => undefined);
     const allowTopicOverride = parsedConfig.allowTopicOverride ?? false;
     const allowUrlOverride = parsedConfig.allowUrlOverride ?? false;
-    const allowedTopics = parsedConfig.allowedTopics ?? [];
+    const allowedTopics = (parsedConfig.allowedTopics ?? []).map((topic) => topic.trim());
     function resolveUrl(url) {
         if (url && allowUrlOverride) {
             return url;
@@ -37,8 +37,9 @@ export function createToolHandlers(config = {}) {
     }
     function resolveTopic(topic) {
         // The allowlist is the more restrictive setting, so it wins over allowTopicOverride.
+        // NTFY_TOPIC is always allowed, as in the schema enum.
         if (allowedTopics.length > 0 && topic?.trim()) {
-            if (!allowedTopics.includes(topic.trim())) {
+            if (!allowedTopics.includes(topic.trim()) && topic.trim() !== getDefaultTopic()?.trim()) {
                 throw new Error("Invalid topic: not in NTFY_TOPICS_ALLOWLIST.");
             }
             return validateNtfyTopic(topic, "topic");

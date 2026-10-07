@@ -15,8 +15,12 @@ describe("parseBooleanEnv", () => {
 });
 
 describe("parseTopicAllowlist (#34)", () => {
-    it.each([undefined, "", "   ", ",", " , ,"])("treats %j as no allowlist", (value) => {
+    it.each([undefined, "", "   "])("treats %j as no allowlist", (value) => {
         expect(parseTopicAllowlist(value)).toEqual([]);
+    });
+
+    it.each([",", " , ,"])("rejects %j: set, but lists no topics", (value) => {
+        expect(() => parseTopicAllowlist(value)).toThrow("Invalid NTFY_TOPICS_ALLOWLIST: no topics listed.");
     });
 
     it("splits on commas, trims entries and drops empty ones", () => {
@@ -31,14 +35,21 @@ describe("parseTopicAllowlist (#34)", () => {
         expect(parseTopicAllowlist("Alerts,alerts")).toEqual(["Alerts", "alerts"]);
     });
 
-    it.each(["alerts,bad topic", "alerts,dots.not.allowed", `alerts,${"a".repeat(129)}`])(
-        "rejects an invalid entry in %j, naming the variable but not echoing the entry",
-        (value) => {
-            expect(() => parseTopicAllowlist(value)).toThrow(/^Invalid NTFY_TOPICS_ALLOWLIST: topic /);
+    it.each([
+        ["alerts,bad topic", 2],
+        ["alerts,,dots.not.allowed", 3],
+        [`${"a".repeat(129)},alerts`, 1],
+    ] as const)(
+        "rejects an invalid entry in %j, naming its position (%i) but not echoing it",
+        (value, position) => {
+            expect(() => parseTopicAllowlist(value)).toThrow(
+                new RegExp(`^Invalid NTFY_TOPICS_ALLOWLIST entry ${position}: topic `)
+            );
             try {
                 parseTopicAllowlist(value);
             } catch (error) {
-                expect((error as Error).message).not.toContain(value.split(",")[1]);
+                const invalidEntry = value.split(",")[position - 1];
+                expect((error as Error).message).not.toContain(invalidEntry);
             }
         }
     );

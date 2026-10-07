@@ -370,6 +370,22 @@ describe("createToolHandlers", () => {
             expect(rejected.structuredContent.error).toBe("Invalid topic: not in NTFY_TOPICS_ALLOWLIST.");
         });
 
+        it("always allows NTFY_TOPIC and trims allowlist entries for library callers", async () => {
+            mockFetch.mockResolvedValue(createResponse());
+
+            const { handleNotifyTool } = buildHandlers({ allowedTopics: [" alerts "] });
+            const results = [];
+            for (const topic of ["default_topic", "alerts"]) {
+                results.push(await handleNotifyTool({ title: "T", message: "m", topic, priority: "default" }));
+            }
+
+            expect(results.map((result) => result.isError)).toEqual([undefined, undefined]);
+            expect(mockFetch.mock.calls.map((call) => call[0])).toEqual([
+                "https://ntfy.sh/default_topic",
+                "https://ntfy.sh/alerts",
+            ]);
+        });
+
         it("an empty allowlist keeps the #21 lock", async () => {
             mockFetch.mockResolvedValueOnce(createResponse());
 

@@ -65,6 +65,9 @@ describe("tool input schemas and destination overrides (#21)", () => {
             expect(schema.parse({ ...base, topic: "alerts" })).toMatchObject({ topic: "alerts" });
             expect(schema.parse({ ...base, topic: " alerts " })).toMatchObject({ topic: "alerts" });
             expect(schema.safeParse({ ...base, topic: "agent_picked_topic" }).success).toBe(false);
+            for (const topic of [null, 123, ["alerts"], "Alerts"]) {
+                expect(schema.safeParse({ ...base, topic }).success).toBe(false);
+            }
         });
 
         it.each([
@@ -89,7 +92,8 @@ describe("tool input schemas and destination overrides (#21)", () => {
 
         it("lists the allowed topics in the topic description", () => {
             for (const schema of [createNotifyToolInputSchema(ALLOWLIST), createFetchToolInputSchema(ALLOWLIST)]) {
-                expect(schema.shape.topic.description).toContain("default_topic, alerts");
+                expect(schema.shape.topic.description).toContain("One of: default_topic, alerts.");
+                expect(schema.shape.topic.description).toContain("Defaults to default_topic (NTFY_TOPIC)");
             }
         });
 
