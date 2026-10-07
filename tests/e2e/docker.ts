@@ -33,6 +33,15 @@ export async function assertDockerAvailable(): Promise<void> {
     }
 }
 
+/** Pulls NTFY_IMAGE unless it's already present. */
+export async function ensureImage(): Promise<void> {
+    try {
+        await docker("image", "inspect", NTFY_IMAGE);
+    } catch {
+        await docker("pull", NTFY_IMAGE);
+    }
+}
+
 /** Starts `ntfy serve` on a free loopback port and waits until it's healthy. */
 export async function startNtfy(name: string, env: Record<string, string> = {}): Promise<string> {
     const envArgs = Object.entries({ ...NO_RATE_LIMITS, ...env }).flatMap(([key, value]) => ["-e", `${key}=${value}`]);

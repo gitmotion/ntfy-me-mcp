@@ -56,7 +56,7 @@ A docs-only change should leave `build/` untouched. `git status` after `npm run 
 - Type-check quickly with `npm run typecheck` while you work. It checks `src/` and the tests (`tsconfig.test.json`).
 - Build the project with `npm run build`, which also type-checks.
 - Run the test suite before submitting changes with `npm test`.
-- If you touched request building, headers, auth or routing, also run `npm run build && npm run test:e2e`. It starts two ntfy containers (`binwiederhier/ntfy:v2.28.0`, or `NTFY_E2E_IMAGE`) on free loopback ports and removes them afterwards. On Ctrl-C or SIGTERM a detached cleanup process removes them, then checks once more 15 s later in case one was still starting. If any are left (for example after SIGKILL), remove them with `ids=$(docker ps -aq --filter label=ntfy-me-e2e); [ -z "$ids" ] || docker rm -f $ids`.
+- If you touched request building, headers, auth or routing, also run `npm run build && npm run test:e2e`. It starts two ntfy containers (`binwiederhier/ntfy:v2.28.0`, or `NTFY_E2E_IMAGE`) on free loopback ports and removes them afterwards. On Ctrl-C or SIGTERM a detached cleanup process removes them, then checks once more 15 s later in case one was still starting. If any are left (for example after SIGKILL), remove them with `docker ps -aq --filter label=ntfy-me-e2e | xargs -r docker rm -f` (works in bash and zsh, and does nothing when there's nothing to remove).
 - Run the server locally with `npm start` or `node build/index.js` (requires `NTFY_TOPIC`, e.g. from a `.env` file).
 - Ensure the code is clean, well documented, and consistent with the existing project style.
 

@@ -4,7 +4,7 @@ import { existsSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { TestProject } from "vitest/node";
-import { assertDockerAvailable, ntfyExec, startNtfy, stopNtfy } from "./docker.js";
+import { assertDockerAvailable, ensureImage, ntfyExec, startNtfy, stopNtfy } from "./docker.js";
 
 declare module "vitest" {
     export interface ProvidedContext {
@@ -34,6 +34,9 @@ export default async function setup(project: TestProject) {
         throw new Error("build/index.js is missing. Run `npm run build` before `npm run test:e2e`.");
     }
     await assertDockerAvailable();
+    // Pull before any container starts, so a `docker run` never includes a slow
+    // pull that could outlast the signal-time cleanup's second sweep.
+    await ensureImage();
 
     // Random names: pids repeat across CI containers sharing one Docker daemon.
     const run = randomBytes(4).toString("hex");
@@ -48,16 +51,19 @@ export default async function setup(project: TestProject) {
         spawn(process.execPath, ["-e", REAPER, JSON.stringify([open, auth])], {
             detached: true,
             stdio: "ignore",
+            windowsHide: true,
         })
             .on("error", () => undefined)
             .unref();
     };
     process.on("SIGINT", reapContainers);
     process.on("SIGTERM", reapContainers);
+    // Keep the handlers until the containers are gone: a Ctrl-C during
+    // teardown can kill `docker rm` before it reaches the daemon.
     const stopAll = async () => {
+        await Promise.all([stopNtfy(open), stopNtfy(auth)]);
         process.off("SIGINT", reapContainers);
         process.off("SIGTERM", reapContainers);
-        await Promise.all([stopNtfy(open), stopNtfy(auth)]);
     };
 
     try {

@@ -44,7 +44,11 @@ export async function connect(env: Record<string, string>): Promise<McpSession> 
     try {
         await client.connect(transport);
     } catch (error) {
-        removeCwd();
+        try {
+            removeCwd();
+        } catch {
+            // the server may still be exiting (EBUSY on Windows); keep the real error
+        }
         throw error;
     }
 
