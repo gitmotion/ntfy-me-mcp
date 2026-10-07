@@ -126,6 +126,31 @@ describe("an unresolved ${input:…} NTFY_TOKEN", () => {
         expect(result.stderr).not.toContain("running on stdio");
     });
 
+    // #46: other placeholders the client didn't substitute fail the same way,
+    // instead of being sent as a bearer token that 401s every call.
+    it.each(["${env:NTFY_TOKEN}", "${NTFY_TOKEN}", "${input:}", "tk_abc${SUFFIX}"])(
+        "exits at startup for NTFY_TOKEN=%j, writing nothing to stdout and leaving stdin unread",
+        async (placeholder) => {
+            workDir = mkdtempSync(join(tmpdir(), "ntfy-me-placeholder-"));
+
+            const result = await runUntilExit(
+                workDir,
+                { NTFY_TOPIC: "placeholder", NTFY_URL: "http://127.0.0.1:9", NTFY_TOKEN: placeholder },
+                INITIALIZE_REQUEST,
+                STDIN_TRAP
+            );
+
+            expect(result.stdout).toBe("");
+            expect(result.exitedOnItsOwn).toBe(true);
+            expect(result.exitCode).toBe(1);
+            expect(result.stderr).toContain("NTFY_TOKEN contains an unresolved ${…} placeholder");
+            expect(result.stderr).not.toContain(placeholder);
+            expect(result.stderr).toContain(STDIN_TRAP_LOADED);
+            expect(result.stderr).not.toContain(STDIN_TOUCHED);
+            expect(result.stderr).not.toContain("running on stdio");
+        }
+    );
+
     it("leaves a real NTFY_TOKEN alone (and the stdin trap sees the MCP transport read stdin)", async () => {
         workDir = mkdtempSync(join(tmpdir(), "ntfy-me-real-token-"));
 

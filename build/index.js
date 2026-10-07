@@ -8,7 +8,7 @@ import fs from "fs";
 import { createFetchToolInputSchema, } from "./schemas/fetchTool.schema.js";
 import { createNotifyToolInputSchema, } from "./schemas/notifyTool.schema.js";
 import { parseBooleanEnv, parseTopicAllowlist } from "./utils/env.js";
-import { isUnresolvedInputReference, validateStartupConfig, } from "./utils/validation.js";
+import { hasUnresolvedPlaceholder, isUnresolvedInputReference, validateStartupConfig, } from "./utils/validation.js";
 import { createToolHandlers } from "./utils/toolHandlers.js";
 import { Logger } from "./utils/logger.js";
 const logger = Logger.getInstance();
@@ -32,7 +32,9 @@ const NTFY_TOPIC = process.env.NTFY_TOPIC;
 const NTFY_URL = process.env.NTFY_URL || "https://ntfy.sh";
 const RAW_NTFY_TOKEN = process.env.NTFY_TOKEN?.trim() ?? "";
 const HAS_UNRESOLVED_TOKEN_INPUT = isUnresolvedInputReference(RAW_NTFY_TOKEN);
-const NTFY_TOKEN = HAS_UNRESOLVED_TOKEN_INPUT ? "" : RAW_NTFY_TOKEN;
+// Any other ${…} the client didn't substitute (#46), e.g. ${env:NTFY_TOKEN}.
+const HAS_UNRESOLVED_TOKEN_PLACEHOLDER = !HAS_UNRESOLVED_TOKEN_INPUT && hasUnresolvedPlaceholder(RAW_NTFY_TOKEN);
+const NTFY_TOKEN = HAS_UNRESOLVED_TOKEN_INPUT || HAS_UNRESOLVED_TOKEN_PLACEHOLDER ? "" : RAW_NTFY_TOKEN;
 const NTFY_ALLOW_TOPIC_OVERRIDE = parseBooleanEnv(process.env.NTFY_ALLOW_TOPIC_OVERRIDE);
 const NTFY_ALLOW_URL_OVERRIDE = parseBooleanEnv(process.env.NTFY_ALLOW_URL_OVERRIDE);
 async function initializeServer() {
@@ -50,6 +52,12 @@ async function initializeServer() {
     // for a token the client failed to substitute: say so and exit.
     if (HAS_UNRESOLVED_TOKEN_INPUT) {
         logger.error("NTFY_TOKEN is an unresolved ${input:…} reference: the server received the placeholder itself (from your MCP client config or ./.env) instead of your token. Set NTFY_TOKEN to the token itself (or to a reference your client resolves, such as an environment variable), or remove it for public topics. Exiting.");
+        process.exit(1);
+    }
+    // Sent as a bearer token, a placeholder makes ntfy servers with auth enabled
+    // (ntfy.sh among them) answer 401 to every request, even on public topics.
+    if (HAS_UNRESOLVED_TOKEN_PLACEHOLDER) {
+        logger.error("NTFY_TOKEN contains an unresolved ${…} placeholder: your MCP client (or ./.env) passed the placeholder text instead of substituting it, and ntfy servers with auth enabled (such as ntfy.sh) reject it on every request. Set NTFY_TOKEN to the token itself (or to a reference your client resolves), or remove it for public topics. Exiting.");
         process.exit(1);
     }
     if (NTFY_TOKEN) {

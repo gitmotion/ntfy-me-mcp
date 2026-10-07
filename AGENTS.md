@@ -70,7 +70,7 @@ build/                     compiled output; COMMITTED to git (see below)
 This is a stdio MCP server, so **anything written to stdout corrupts the protocol stream.**
 - Log only through `Logger.getInstance()` (`logger.info|warn|error`), which writes to stderr.
 - Never call `console.*` directly (only `logger.ts` may), and never write a file-local logging helper.
-- Don't add anything that reads stdin outside the MCP transport. Startup can't prompt: an unresolved `${input:…}` `NTFY_TOKEN` exits with an error instead (#28).
+- Don't add anything that reads stdin outside the MCP transport. Startup can't prompt: an unresolved `${input:…}` `NTFY_TOKEN` exits with an error instead (#28), and so does any other `${…}` placeholder in it (#46).
 
 ### Security-sensitive code
 `src/utils/validation.ts` and the request-building code in `toolHandlers.ts` / `messages.ts` are a security boundary. Tool arguments come from an LLM and may be prompt-injected.
@@ -106,7 +106,7 @@ The compiled `build/` directory is checked in. When you change anything under `s
   - `tests/actions.test.ts`, `tests/markdown.test.ts`: the detection utilities
   - `tests/serverToolList.test.ts`: spawns the built server; env → tool-schema wiring (overrides, allowlist)
   - `tests/e2e/*.e2e.test.ts`: end to end over MCP stdio against Docker ntfy, asserted through ntfy's own API (helpers in `tests/e2e/helpers.ts`, containers in `tests/e2e/docker.ts`)
-  - `tests/stdout.test.ts`: spawns the built server; stdout stays JSON-RPC-only, an unresolved `${input:…}` `NTFY_TOKEN` exits without touching stdin or stdout, an invalid `NTFY_TOPIC` / `NTFY_URL` exits before `NTFY_URL` is logged, `./.env` is loaded (as UTF-8), and no `DOTENV_*` variable can override the client's env or change which file is read
+  - `tests/stdout.test.ts`: spawns the built server; stdout stays JSON-RPC-only, an unresolved `${input:…}` or other `${…}` `NTFY_TOKEN` exits without touching stdin or stdout, an invalid `NTFY_TOPIC` / `NTFY_URL` exits before `NTFY_URL` is logged, `./.env` is loaded (as UTF-8), and no `DOTENV_*` variable can override the client's env or change which file is read
 - Any change to tool handlers, schemas, validation or fetch parsing needs new or updated tests in the matching file.
 - `npm run typecheck` also type-checks the tests (`tsconfig.test.json`); keep it clean.
 
