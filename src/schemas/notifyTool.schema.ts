@@ -31,8 +31,11 @@ export const notifyToolInputSchema = z.object({
         .describe("Whether to format the message with Markdown support"),
     actions: z
         .array(viewActionSchema)
+        .max(3, "At most 3 view actions are allowed per notification")
         .optional()
-        .describe("Optional array of view actions to add to the notification"),
+        .describe(
+            "Optional array of view actions to add to the notification (max 3; each url must be http:// or https://)"
+        ),
 });
 
 export type NotifyToolInput = z.infer<typeof notifyToolInputSchema>;
