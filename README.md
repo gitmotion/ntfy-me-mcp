@@ -1,7 +1,7 @@
 # <img src="https://m2tg1pnwn0.ufs.sh/f/GMqNN8nd9I8l9tUbmif1CnFX8Baqr7mHeicYu0AULDyNVWJE" width=30 /> ntfy-me-mcp
 
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.9.3-blue.svg?logo=typescript)](https://www.typescriptlang.org/)
-[![Model Context Protocol](https://img.shields.io/badge/MCP-1.29.0-green.svg?logo=anthropic)](https://modelcontextprotocol.io/)
+[![TypeScript](https://img.shields.io/npm/dependency-version/ntfy-me-mcp/dev/typescript?logo=typescript&label=TypeScript&color=blue)](https://www.typescriptlang.org/)
+[![Model Context Protocol](https://img.shields.io/npm/dependency-version/ntfy-me-mcp/@modelcontextprotocol/sdk?logo=anthropic&label=MCP%20SDK&color=green)](https://modelcontextprotocol.io/)
 [![NPM Version](https://img.shields.io/npm/v/ntfy-me-mcp.svg?logo=npm&color=orange)](https://www.npmjs.com/package/ntfy-me-mcp)
 [![Docker Image Version](https://img.shields.io/docker/v/gitmotion/ntfy-me-mcp?logo=docker&label=Docker)](https://hub.docker.com/r/gitmotion/ntfy-me-mcp)
 [![License](https://img.shields.io/badge/license-GPL--3.0-blue.svg)](LICENSE)
@@ -10,7 +10,7 @@
 <img src="https://www.buymeacoffee.com/assets/img/custom_images/yellow_img.png" alt="Buy me a coffee" width="105px" />
 </a>
 
-> A streamlined Model Context Protocol (MCP) server for sending notifications via ntfy service (public or selfhosted with token support) 📲
+> A streamlined Model Context Protocol (MCP) server for sending and fetching notifications via the ntfy service (public or self-hosted, with token support) 📲
 
 ## Overview
 
@@ -67,6 +67,7 @@ The server includes intelligent features like automatic URL detection for creati
 - 🎨 **Rich Notifications**: Support for topic, title, priorities, emoji tags, and detailed messages
 - 🔍 **Notification Fetching**: Fetch and filter cached messages from your ntfy topics
 - 🎯 **Smart Action Links**: Automatically detects URLs in messages and creates view actions
+- 🔗 **Click URLs**: Choose the link that opens when the notification is tapped
 - 📄 **Intelligent Markdown**: Auto-detects and enables markdown formatting when present
 - 🔒 **Secure**: Optional authentication with access tokens
 - 🔑 **Input Masking**: Securely store your ntfy token in your vs config!
@@ -74,7 +75,6 @@ The server includes intelligent features like automatic URL detection for creati
 
 #### Coming soon...
 - 📨 **Email**: Send notifications to email (requires ntfy email server configuration)
-- 🔗 **Click urls**: Ability to customize click urls
 - 🖼️ **Image urls**: Intelligent image url detection to automatically include image urls in messages and notifications
 - 🏁 and more!
 
@@ -118,8 +118,13 @@ The server includes intelligent features like automatic URL detection for creati
         <a href="#ntfy_me_fetch-polling-notifications">ntfy_me_fetch: Polling Notifications</a><br/>
         &nbsp;&nbsp;&nbsp;&nbsp;<a href="#using-natural-language-1">↳ Using Natural Language</a><br/>
         &nbsp;&nbsp;&nbsp;&nbsp;<a href="#example-usage-1">↳ Example Usage</a><br/>
-        &nbsp;&nbsp;&nbsp;&nbsp;<a href="#fetch-parameters">↳ Fetch Parameters</a>
+        &nbsp;&nbsp;&nbsp;&nbsp;<a href="#fetch-parameters">↳ Fetch Parameters</a><br/>
+        <a href="#tool-output">Tool output</a>
       </td>
+    </tr>
+    <tr>
+      <td><a href="#security">Security</a></td>
+      <td></td>
     </tr>
     <tr>
       <td><a href="#development--contributions">Development &amp; Contributions</a></td>
@@ -135,6 +140,8 @@ The server includes intelligent features like automatic URL detection for creati
 ## Quickstart - MCP Server Configuration
 
 Choose the config shape that matches your client. All examples below use `NTFY_TOPIC` as the required variable and keep the optional auth settings commented out until you need them.
+
+> **Requirements:** Node.js 24 or newer for the npx, global and local options. CI and the Docker image use Node 24. Node 22 and earlier aren't supported (npm warns `EBADENGINE`). The Docker option needs only Docker.
 
 ### Configuration Examples
 
@@ -246,8 +253,9 @@ Choose the config shape that matches your client. All examples below use `NTFY_T
       </td>
     </tr>
     <tr>
-      <td>ClaudeCode</td>
-      <td>Add to <code>.mcp.json</code> at your project root (shared with your team via version control), or to <code>~/.claude.json</code> for user-level access across all projects.</td>
+      <td>Claude Code</td>
+      <td>Quickest: run <code>claude mcp add ntfy-me-mcp -e NTFY_TOPIC=your-ntfy-topic -- npx -y ntfy-me-mcp</code> (add <code>--scope user</code> for all projects, or <code>--scope project</code> to write <code>.mcp.json</code>).
+        <br/>Or add it by hand to <code>.mcp.json</code> at your project root (shared with your team via version control). <code>${NTFY_TOKEN:-}</code> reads the token from your shell environment and falls back to empty.</td>
       <td>
         <details>
           <summary>Show config</summary>
@@ -259,7 +267,7 @@ Choose the config shape that matches your client. All examples below use `NTFY_T
       "env": {
         "NTFY_TOPIC": "your-ntfy-topic",
         "NTFY_URL": "https://ntfy.sh",
-        "NTFY_TOKEN": "${NTFY_TOKEN}"
+        "NTFY_TOKEN": "${NTFY_TOKEN:-}"
       }
     }
   }
@@ -288,6 +296,23 @@ Choose the config shape that matches your client. All examples below use `NTFY_T
     }
   }
 }</code></pre>
+        </details>
+      </td>
+    </tr>
+    <tr>
+      <td>Codex</td>
+      <td>Run <code>codex mcp add ntfy-me-mcp --env NTFY_TOPIC=your-ntfy-topic -- npx -y ntfy-me-mcp</code>, or add the block to <code>~/.codex/config.toml</code> by hand.</td>
+      <td>
+        <details>
+          <summary>Show config</summary>
+          <pre><code>[mcp_servers.ntfy-me-mcp]
+command = "npx"
+args = ["-y", "ntfy-me-mcp"]
+
+[mcp_servers.ntfy-me-mcp.env]
+NTFY_TOPIC = "your-ntfy-topic"
+NTFY_URL = "https://ntfy.sh"
+# NTFY_TOKEN = "your-access-token"</code></pre>
         </details>
       </td>
     </tr>
@@ -387,7 +412,10 @@ Create a `.env` file by copying the example: `cp .env.example .env` — see [`.e
 | --- | --- | --- | --- |
 | `NTFY_TOPIC` | Yes | — | The ntfy topic to publish notifications to |
 | `NTFY_URL` | No | `https://ntfy.sh` | ntfy server URL — change this for self-hosted instances<br/>(include port if needed, e.g. `https://your-server.com:8443`) |
-| `NTFY_TOKEN` | No | — | Access token for protected topics or private servers |
+| `NTFY_TOKEN` | No | — | Access token for protected topics or private servers. Only ever sent to the `NTFY_URL` server |
+| `NTFY_ALLOW_TOPIC_OVERRIDE` | No | `false` | Set to `true` to let the agent choose a per-call `topic`. When off (the default), the `topic` parameter isn't offered to the agent and every notification and fetch uses `NTFY_TOPIC` |
+| `NTFY_TOPICS_ALLOWLIST` | No | — | Comma-separated topics you subscribe to, e.g. `alerts,builds,deploys`. When set, the agent may send to or fetch from `NTFY_TOPIC` or one of these topics, and no other topic. The `topic` parameter is offered as a list of exactly those topics. Takes precedence over `NTFY_ALLOW_TOPIC_OVERRIDE`. An invalid entry, or a value that lists no topics (e.g. `,`), stops the server at startup |
+| `NTFY_ALLOW_URL_OVERRIDE` | No | `false` | Set to `true` to let the agent choose a per-call server `url`. When off (the default), the `url` parameter isn't offered and every request goes to `NTFY_URL`. Even when on, `NTFY_TOKEN` is only sent to `NTFY_URL` |
 
 ### Authentication
 
@@ -447,9 +475,9 @@ This MCP server supports both authenticated and unauthenticated ntfy endpoints:
 | `inputs[].type` | `"promptString"` | Prompts the user for the token at runtime |
 
 
-> If the client resolves `"${input:ntfy_token}"` before launch, the server receives the real token directly. If the placeholder is passed through unchanged, ntfy-me-mcp detects that unresolved input reference and prompts for the token itself at startup.
+> Your MCP client must resolve `"${input:ntfy_token}"` before it launches the server, as VS Code does, so the server receives the real token. If your client doesn't support `${input:…}` references (Claude Desktop, Claude Code, Codex and others), set `NTFY_TOKEN` to the real token or to an environment-variable reference your client does support. If the placeholder reaches the server unresolved, the server can't ask you for the token (stdin and stdout carry the MCP connection), so it exits at startup with an error saying `NTFY_TOKEN is an unresolved ${input:…} reference`, which your client shows in its MCP server log. The same goes for any other placeholder your client didn't substitute, such as `${env:NTFY_TOKEN}` or `${NTFY_TOKEN}`: the server exits with `NTFY_TOKEN contains an unresolved ${…} placeholder` instead of sending it as a token, which ntfy servers with auth enabled (such as ntfy.sh) reject on every request.
 >
-> Since `v1.4.0+`, the `PROTECTED_TOPIC` env has been removed. This handling is now auto-detected from the unresolved `NTFY_TOKEN` input reference instead.
+> The `PROTECTED_TOPIC` env var was removed in `v1.4.0`. For protected topics, set `NTFY_TOKEN`, resolved by your client, instead.
 
 </details>
 
@@ -511,7 +539,7 @@ TypeScript typing.",
   <tbody>
     <tr>
       <td valign="top"><code>title</code></td>
-      <td valign="top">The notification title</td>
+      <td valign="top">The notification title. Unicode and emoji are supported</td>
       <td valign="top">Yes</td>
       <td valign="top">—</td>
     </tr>
@@ -523,19 +551,19 @@ TypeScript typing.",
     </tr>
     <tr>
       <td valign="top"><code>url</code></td>
-      <td valign="top">Custom ntfy server URL</td>
+      <td valign="top">Custom ntfy server URL. <b>Only offered when <code>NTFY_ALLOW_URL_OVERRIDE=true</code></b>. <code>NTFY_TOKEN</code> is only sent to the <code>NTFY_URL</code> server; pass <code>accessToken</code> for another server</td>
       <td valign="top">No</td>
       <td valign="top"><i>Default: <code>NTFY_URL</code></i></td>
     </tr>
     <tr>
       <td valign="top"><code>topic</code></td>
-      <td valign="top">Custom ntfy topic</td>
+      <td valign="top">Custom ntfy topic. <b>Only offered when <code>NTFY_TOPICS_ALLOWLIST</code> is set (then limited to <code>NTFY_TOPIC</code> and those topics) or <code>NTFY_ALLOW_TOPIC_OVERRIDE=true</code></b>; otherwise every notification goes to <code>NTFY_TOPIC</code></td>
       <td valign="top">No</td>
       <td valign="top"><i>Default: <code>NTFY_TOPIC</code></i></td>
     </tr>
     <tr>
       <td valign="top"><code>accessToken</code></td>
-      <td valign="top">Access token for protected topics</td>
+      <td valign="top">Access token for protected topics. A blank value (<code>""</code>, spaces) counts as not provided</td>
       <td valign="top">No</td>
       <td valign="top"><i>Default: <code>NTFY_TOKEN</code></i></td>
     </tr>
@@ -574,7 +602,7 @@ TypeScript typing.",
     </tr>
     <tr>
       <td valign="top"><code>actions</code></td>
-      <td valign="top">Array of view action objects for clickable links. URLs in the message body are auto-detected (up to 3 actions). For manual control, each action requires <code>action</code>, <code>label</code>, and <code>url</code>, with an optional <code>clear</code> flag.</td>
+      <td valign="top">Array of view action objects for clickable links (at most 3 per notification). URLs in the message body are auto-detected (up to 3 actions). For manual control, each action requires <code>action</code>, <code>label</code>, and an <code>http://</code> or <code>https://</code> <code>url</code> without embedded credentials, with an optional <code>clear</code> flag.</td>
       <td valign="top">No</td>
       <td valign="top">
         <details>
@@ -607,6 +635,12 @@ TypeScript typing.",
         </details>
       </td>
     </tr>
+    <tr>
+      <td valign="top"><code>click</code></td>
+      <td valign="top">Link opened when the notification itself is tapped (ntfy's <a href="https://docs.ntfy.sh/publish/#click-action">click action</a>). Must be <code>http://</code>, <code>https://</code>, <code>mailto:</code>, <code>geo:</code> or <code>ntfy://</code>, without embedded credentials. A blank value counts as not provided</td>
+      <td valign="top">No</td>
+      <td valign="top"><code>{ "click": "https://github.com/user/repo/actions/runs/123" }</code></td>
+    </tr>
   </tbody>
 </table>
 
@@ -621,7 +655,7 @@ AI assistants understand various ways to request message fetching:
 "Get messages from the last hour"
 "Find notifications with title 'Build Complete'"
 "Search for messages with the test_tube tag"
-"Show notifications from the updates topic from the last 24hr"
+"Show notifications from the updates topic from the last 24hr"  # needs updates in NTFY_TOPICS_ALLOWLIST (or NTFY_ALLOW_TOPIC_OVERRIDE=true)
 "Check my latest alerts"
 ```
 
@@ -675,19 +709,19 @@ AI assistants understand various ways to request message fetching:
   <tbody>
     <tr>
       <td valign="top"><code>url</code></td>
-      <td valign="top">Custom ntfy server URL</td>
+      <td valign="top">Custom ntfy server URL. <b>Only offered when <code>NTFY_ALLOW_URL_OVERRIDE=true</code></b>. <code>NTFY_TOKEN</code> is only sent to the <code>NTFY_URL</code> server; pass <code>accessToken</code> for another server</td>
       <td valign="top">No</td>
       <td valign="top"><i>Default: <code>NTFY_URL</code></i></td>
     </tr>
     <tr>
       <td valign="top"><code>topic</code></td>
-      <td valign="top">Topic to fetch messages from</td>
+      <td valign="top">Topic to fetch messages from. <b>Only offered when <code>NTFY_TOPICS_ALLOWLIST</code> is set (limited to <code>NTFY_TOPIC</code> and those topics) or <code>NTFY_ALLOW_TOPIC_OVERRIDE=true</code></b></td>
       <td valign="top">No</td>
       <td valign="top"><i>Default: <code>NTFY_TOPIC</code></i><br/><br/><code>{ "topic": "updates", "since": "all" }</code></td>
     </tr>
     <tr>
       <td valign="top"><code>accessToken</code></td>
-      <td valign="top">Access token for protected topics</td>
+      <td valign="top">Access token for protected topics. A blank value (<code>""</code>, spaces) counts as not provided</td>
       <td valign="top">No</td>
       <td valign="top"><i>Default: <code>NTFY_TOKEN</code></i></td>
     </tr>
@@ -696,6 +730,7 @@ AI assistants understand various ways to request message fetching:
       <td valign="top">How far back to retrieve messages</td>
       <td valign="top">No</td>
       <td valign="top">
+        <i>Default: <code>"10m"</code></i><br/>
         Options: <code>'10m'</code>, <code>'1h'</code>, <code>'1d'</code>, timestamp, message ID, or <code>'all'</code><br/>
         Example: <code>{ "since": "30m" }</code>
       </td>
@@ -720,19 +755,49 @@ AI assistants understand various ways to request message fetching:
     </tr>
     <tr>
       <td valign="top"><code>priorities</code></td>
-      <td valign="top">Find messages with specific priority levels</td>
+      <td valign="top">Find messages with specific priority levels. A single value or an array.</td>
       <td valign="top">No</td>
-      <td valign="top"><code>{ "priorities": "high" }</code></td>
+      <td valign="top"><code>{ "priorities": "high" }</code><br/><code>{ "priorities": ["high", "max"] }</code></td>
     </tr>
     <tr>
       <td valign="top"><code>tags</code></td>
-      <td valign="top">Find messages with specific tags</td>
+      <td valign="top">Find messages with specific tags. A single tag or an array; every listed tag must be present.</td>
       <td valign="top">No</td>
-      <td valign="top"><code>{ "tags": ["error", "warning"] }</code></td>
+      <td valign="top"><code>{ "tags": "error" }</code><br/><code>{ "tags": ["error", "warning"] }</code></td>
     </tr>
   </tbody>
 </table>
 
+### Tool output
+
+Both tools return human-readable `content` for the model and a machine-readable `structuredContent` object. For `ntfy_me_fetch`, `content` also includes the fetched messages as JSON. That text comes from whoever published to the topic, so treat it as untrusted (see [Security](#security)).
+
+| Tool | Success (`structuredContent`) |
+| --- | --- |
+| `ntfy_me` | `{ "success": true, "endpoint": "https://ntfy.sh/your-topic" }` |
+| `ntfy_me_fetch` | `{ "success": true, "messageCount": 1, "topics": { "your-topic": [ /* messages */ ] } }`<br/>When the server returns an empty response (no cached messages in the requested window): `{ "success": true, "topic": "your-topic", "messages": [] }`<br/>When the response contains no valid message records: `{ "success": true, "messageCount": 0, "topics": {} }` |
+
+**Invalid arguments** (a missing `title`, a malformed `topic`, an unknown `priority`, …) are rejected by the MCP SDK's schema validation before the tool runs. They come back with `isError: true` and a text-only `MCP error -32602: Input validation error: …` message that names the field and the expected format, with no `structuredContent`.
+
+**Failures inside the tool** set `isError: true` and return `{ "success": false, "error": "<message>" }`. The error message is specific for an invalid `url` or `topic`, an authentication failure (HTTP 401/403), a non-2xx status code (`... Status code: 500`), or a network failure, named with Node's error code: `... could not connect to the ntfy server (ECONNREFUSED)` when no connection was made, or `... the request to the ntfy server failed (ECONNRESET)` when it broke after connecting (the notification may have been delivered). Anything else is reported generically (`Failed to send ntfy notification` / `Failed to fetch ntfy messages`), so raw input or server text is never echoed back to the model. The full underlying error is written to the server's stderr log.
+
+## Security
+
+ntfy-me-mcp treats every tool argument as untrusted, because it comes from a model that may have read prompt-injected content.
+
+- **URLs:** only `http://` and `https://` server URLs are accepted, from both the `url` argument and `NTFY_URL`. URLs with embedded credentials (`https://user:pass@…`) are rejected; use `NTFY_TOKEN` or `accessToken`.
+- **Startup checks:** a missing or invalid `NTFY_TOPIC`, or an invalid `NTFY_URL` (not http(s), or containing `user:pass@`), stops the server at startup. The error names the variable and is written to stderr, which your MCP client shows in its server log. The server checks these before logging `NTFY_URL`, so embedded credentials never reach the log.
+- **Tokens and logs:** access tokens must be printable ASCII without spaces. Errors are written to stderr with bearer values and URL credentials redacted.
+- **Topics:** letters, numbers, `_` and `-` only, up to 128 characters.
+- **Error messages:** only a fixed set of known-safe messages reaches the model. Everything else is replaced with a generic message, so attacker-controlled text is never reflected back (see [#13](https://github.com/gitmotion/ntfy-me-mcp/issues/13)).
+- **Fetched messages are untrusted input.** `ntfy_me_fetch` hands message content to the model, and anyone who knows a public topic's name can publish to it. On ntfy.sh, use a hard-to-guess topic name, or a protected topic with an access token.
+- **Destination control:** by default, every notification and fetch goes to `NTFY_TOPIC` on `NTFY_URL`. The agent is never offered the `topic` or `url` parameters, so a prompt-injected call can't send your messages, or your topic name (which is effectively a password on public ntfy.sh), anywhere else (see [#21](https://github.com/gitmotion/ntfy-me-mcp/issues/21)).
+  - `NTFY_TOPICS_ALLOWLIST=alerts,builds` lets the agent choose among the topics you actually subscribe to, plus `NTFY_TOPIC`, and no other topic (see [#34](https://github.com/gitmotion/ntfy-me-mcp/issues/34)). Any other topic is rejected before a request is made, with no silent fallback. These topic names, **including `NTFY_TOPIC`**, appear in the tool schema, so the model and your MCP client can see them. Without an allowlist, the tool schema never contains a topic name. On public ntfy.sh, a topic name works like a password, so only use the allowlist with names you're comfortable sharing with them, or with protected topics.
+  - `NTFY_ALLOW_TOPIC_OVERRIDE=true` and `NTFY_ALLOW_URL_OVERRIDE=true` opt back in to any topic or server, independently. If `NTFY_TOPICS_ALLOWLIST` is also set, it wins over `NTFY_ALLOW_TOPIC_OVERRIDE`.
+  - Even with url overrides on, `NTFY_TOKEN` is only ever sent to the `NTFY_URL` server. Other servers get no credentials unless the call supplies its own `accessToken`.
+- **Tokens:** prefer your client's secret input (e.g. VS Code `${input:…}`) or an environment variable over hardcoding `NTFY_TOKEN` in a config file you share.
+
+Found a vulnerability? Please report it privately through [GitHub security advisories](https://github.com/gitmotion/ntfy-me-mcp/security/advisories/new) rather than in a public issue.
 
 ## Development & Contributions
 
