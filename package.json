@@ -31,6 +31,9 @@
   "bin": {
     "ntfy-me-mcp": "build/index.js"
   },
+  "engines": {
+    "node": ">=24"
+  },
   "files": [
     "build/**/*",
     "README.md",
@@ -38,25 +41,23 @@
   ],
   "scripts": {
     "build": "tsc && chmod +x build/index.js",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc --noEmit && tsc -p tsconfig.test.json",
     "start": "node build/index.js",
-    "test": "vitest run"
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "test:e2e": "vitest run --config vitest.e2e.config.ts"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "1.29.0",
-    "@types/markdown-it": "14.1.2",
-    "dotenv": "17.4.1",
-    "markdown-it": "14.1.1",
-    "node-fetch": "3.3.2",
-    "prompts": "2.4.2",
-    "zod": "4.3.6"
+    "@modelcontextprotocol/sdk": "1.32.0",
+    "dotenv": "18.0.5",
+    "markdown-it": "15.0.2",
+    "zod": "4.6.5"
   },
   "devDependencies": {
-    "@types/node": "25.5.2",
-    "@types/node-fetch": "2.6.13",
-    "@types/prompts": "2.4.9",
-    "typescript": "5.9.3",
-    "vitest": "4.1.3"
+    "@types/node": "24.19.1",
+    "@vitest/coverage-v8": "5.0.3",
+    "typescript": "7.0.2",
+    "vitest": "5.0.3"
   },
   "author": "gitmotion",
   "license": "GPL-3.0",

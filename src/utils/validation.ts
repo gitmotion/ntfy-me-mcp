@@ -21,10 +21,34 @@ export function validateNtfyUrl(url: string, fieldName = "ntfyUrl"): void {
         );
     }
 
+    if (parsed.username || parsed.password) {
+        throw new Error(
+            `Invalid ${fieldName}: credentials in the URL are not supported. Use NTFY_TOKEN or the accessToken parameter instead.`
+        );
+    }
+
     if (parsed.protocol !== "https:" && parsed.protocol !== "http:") {
         throw new Error(
             `Invalid ${fieldName}: unsupported scheme "${parsed.protocol}". Only http:// and https:// URLs are supported.`
         );
+    }
+}
+
+/**
+ * Checks whether two URLs share an origin (scheme, host and port).
+ * Used to decide whether the configured NTFY_TOKEN may be sent to a URL.
+ *
+ * @param url The URL a request is about to be sent to
+ * @param otherUrl The URL to compare against (e.g. NTFY_URL)
+ * @returns True when both parse and their origins match; false otherwise
+ */
+export function isSameOrigin(url: string, otherUrl: string): boolean {
+    try {
+        const origin = new URL(url).origin;
+        // Opaque origins (file:, data:, mailto:, …) all serialize to "null".
+        return origin !== "null" && origin === new URL(otherUrl).origin;
+    } catch {
+        return false;
     }
 }
 
@@ -76,6 +100,45 @@ export function validateNtfyTopic(
     return trimmedTopic;
 }
 
+// Node error codes are constant identifiers (ECONNREFUSED, UND_ERR_CONNECT_TIMEOUT,
+// CERT_HAS_EXPIRED, …), so a code matching this shape is safe to show the model.
+const ERROR_CODE_PATTERN = /^[A-Z][A-Z0-9_]{1,63}$/;
+
+// Codes that mean no connection was established, so the request can't have
+// reached ntfy. Anything else (e.g. a reset after sending) may have published.
+const CONNECT_PHASE_CODES = new Set([
+    "ECONNREFUSED",
+    "ENOTFOUND",
+    "EAI_AGAIN",
+    "EHOSTUNREACH",
+    "ENETUNREACH",
+    "UND_ERR_CONNECT_TIMEOUT",
+]);
+const TLS_ERROR_CODE_PATTERN = /CERT|SELF_SIGNED|UNABLE_TO_|^ERR_TLS_|^ERR_SSL_/;
+
+function isConnectPhaseError(code: string): boolean {
+    return CONNECT_PHASE_CODES.has(code) || TLS_ERROR_CODE_PATTERN.test(code);
+}
+
+/**
+ * Extracts the error code from a native `fetch` network failure
+ * (`TypeError: fetch failed` with a `cause.code`), if it looks like a plain
+ * Node error identifier.
+ */
+function getNetworkErrorCode(error: unknown): string | undefined {
+    if (!(error instanceof TypeError) || error.message !== "fetch failed") {
+        return undefined;
+    }
+
+    const cause: unknown = error.cause;
+    const code =
+        typeof cause === "object" && cause !== null
+            ? (cause as { code?: unknown }).code
+            : undefined;
+
+    return typeof code === "string" && ERROR_CODE_PATTERN.test(code) ? code : undefined;
+}
+
 /**
  * Sanitizes an error message to prevent prompt injection via reflected input.
  * Truncates the message and removes any potential instruction overrides.
@@ -88,6 +151,13 @@ export function sanitizeErrorMessage(
     error: unknown,
     fallbackMessage: string
 ): string {
+    const networkErrorCode = getNetworkErrorCode(error);
+    if (networkErrorCode) {
+        return isConnectPhaseError(networkErrorCode)
+            ? `${fallbackMessage}: could not connect to the ntfy server (${networkErrorCode})`
+            : `${fallbackMessage}: the request to the ntfy server failed (${networkErrorCode})`;
+    }
+
     if (error instanceof Error) {
         // Only allow explicit safe error messages through directly.
         if (
@@ -97,6 +167,7 @@ export function sanitizeErrorMessage(
             error.message.startsWith("Invalid topic:") ||
             error.message.startsWith("Invalid ntfyTopic:") ||
             error.message.startsWith("Invalid NTFY_TOPIC:") ||
+            error.message.startsWith("Invalid access token:") ||
             error.message.startsWith("Authentication failed when sending notification.") ||
             error.message.startsWith("Authentication failed when fetching messages.") ||
             error.message.startsWith("Failed to send ntfy notification. Status code:") ||
@@ -109,4 +180,28 @@ export function sanitizeErrorMessage(
     }
 
     return fallbackMessage;
+}
+
+const ACCESS_TOKEN_PATTERN = /^[\x21-\x7e]+$/;
+
+/**
+ * Checks that an access token can be sent in an Authorization header.
+ * Rejecting it here, with a fixed message, keeps the token out of the
+ * header-validation errors fetch would otherwise throw (and we'd log).
+ *
+ * Surrounding whitespace is trimmed first (fetch trims header values anyway).
+ *
+ * @param token The access token (from accessToken or NTFY_TOKEN)
+ * @returns The trimmed token when it's valid
+ * @throws Error with an allow-listed message when it isn't
+ */
+export function validateAccessToken(token: string): string {
+    const trimmedToken = token.trim();
+    if (!ACCESS_TOKEN_PATTERN.test(trimmedToken)) {
+        throw new Error(
+            "Invalid access token: it may only contain printable ASCII characters without spaces."
+        );
+    }
+
+    return trimmedToken;
 }

@@ -37,13 +37,33 @@ jobs:
         id: install_dependencies
         run: npm ci
 
+      - name: Type-check src and tests
+        id: typecheck
+        run: npm run typecheck
+
+      # Build into an empty build/, so files whose source was deleted show up
+      # as drift too (tsc never removes old output).
       - name: Build
         id: build_project
-        run: npm run build
+        run: |
+          rm -rf build
+          npm run build
 
-      - name: Run tests
+      - name: Check build/ is up to date
+        id: build_drift
+        # --ignored too: .gitignore ignores build/Release, so output there
+        # would otherwise never show as missing.
+        run: |
+          if [ -n "$(git status --porcelain --untracked-files=all --ignored -- build/)" ]; then
+            echo "::error title=build/ is out of date::build/ is committed. Run npm run build and commit the build/ changes with your src/ change."
+            git status --short --untracked-files=all --ignored -- build/
+            git --no-pager diff --stat -- build/
+            exit 1
+          fi
+
+      - name: Run tests with coverage
         id: run_tests
-        run: npm test
+        run: npm run test:coverage
 
       - name: Summarize test workflow
         if: ${{ always() }}
@@ -52,8 +72,8 @@ jobs:
             echo "## Build and Test Summary"
             echo ""
             echo "**Status:** ${{ job.status }}"
-            echo "**Event:** ${{ github.event_name }}"
-            echo "**Ref:** ${{ github.ref }}"
+            echo "**Event:** $GITHUB_EVENT_NAME"
+            echo "**Ref:** $GITHUB_REF"
             echo "**Node Version:** 24"
             echo ""
             echo "| Step | Ran | Result |"
@@ -61,6 +81,44 @@ jobs:
             echo "| Checkout code | ${{ steps.checkout.outcome == 'success' && 'yes' || steps.checkout.outcome == 'failure' && 'yes' || steps.checkout.outcome == 'cancelled' && 'yes' || 'no' }} | ${{ steps.checkout.outcome || 'skipped' }} |"
             echo "| Setup Node.js | ${{ steps.setup_node.outcome == 'success' && 'yes' || steps.setup_node.outcome == 'failure' && 'yes' || steps.setup_node.outcome == 'cancelled' && 'yes' || 'no' }} | ${{ steps.setup_node.outcome || 'skipped' }} |"
             echo "| Install dependencies | ${{ steps.install_dependencies.outcome == 'success' && 'yes' || steps.install_dependencies.outcome == 'failure' && 'yes' || steps.install_dependencies.outcome == 'cancelled' && 'yes' || 'no' }} | ${{ steps.install_dependencies.outcome || 'skipped' }} |"
+            echo "| Type-check src and tests | ${{ steps.typecheck.outcome == 'success' && 'yes' || steps.typecheck.outcome == 'failure' && 'yes' || steps.typecheck.outcome == 'cancelled' && 'yes' || 'no' }} | ${{ steps.typecheck.outcome || 'skipped' }} |"
             echo "| Build | ${{ steps.build_project.outcome == 'success' && 'yes' || steps.build_project.outcome == 'failure' && 'yes' || steps.build_project.outcome == 'cancelled' && 'yes' || 'no' }} | ${{ steps.build_project.outcome || 'skipped' }} |"
-            echo "| Run tests | ${{ steps.run_tests.outcome == 'success' && 'yes' || steps.run_tests.outcome == 'failure' && 'yes' || steps.run_tests.outcome == 'cancelled' && 'yes' || 'no' }} | ${{ steps.run_tests.outcome || 'skipped' }} |"
+            echo "| Check build/ is up to date | ${{ steps.build_drift.outcome == 'success' && 'yes' || steps.build_drift.outcome == 'failure' && 'yes' || steps.build_drift.outcome == 'cancelled' && 'yes' || 'no' }} | ${{ steps.build_drift.outcome || 'skipped' }} |"
+            echo "| Run tests with coverage | ${{ steps.run_tests.outcome == 'success' && 'yes' || steps.run_tests.outcome == 'failure' && 'yes' || steps.run_tests.outcome == 'cancelled' && 'yes' || 'no' }} | ${{ steps.run_tests.outcome || 'skipped' }} |"
+            if [ -f coverage/coverage-summary.json ]; then
+              echo ""
+              echo "### Coverage (unit suite, src/)"
+              echo ""
+              echo "| Metric | Covered | Total | % |"
+              echo "| --- | --- | --- | --- |"
+              node -e 'const t = require("./coverage/coverage-summary.json").total; for (const m of ["statements", "branches", "functions", "lines"]) console.log(`| ${m} | ${t[m].covered} | ${t[m].total} | ${t[m].pct} |`);'
+              echo ""
+              echo "The minimum is 75% for each metric (vitest.config.ts)."
+            fi
           } >> "$GITHUB_STEP_SUMMARY"
+
+  e2e:
+    name: e2e
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Setup Node.js
+        uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v6.3.0
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      # tests/e2e/globalSetup.ts pulls the pinned ntfy image and starts and
+      # removes its own containers; the runner only needs Docker.
+      - name: Run end-to-end tests
+        run: npm run test:e2e

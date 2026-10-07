@@ -1,10 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import fetch, { type Response } from "node-fetch";
 import { fetchMessages } from "../src/utils/messages.js";
 
-vi.mock("node-fetch", () => ({
-    default: vi.fn(),
-}));
+// The network layer uses Node's native fetch (#18).
+const mockFetch = vi.fn<typeof fetch>();
+vi.stubGlobal("fetch", mockFetch);
 
 function createResponse({
     ok = true,
@@ -23,7 +22,6 @@ function createResponse({
 }
 
 describe("fetchMessages", () => {
-    const mockFetch = vi.mocked(fetch);
 
     beforeEach(() => {
         mockFetch.mockReset();
@@ -94,6 +92,51 @@ describe("fetchMessages", () => {
                 },
             ],
         });
+    });
+
+    it("RFC 2047-encodes non-ASCII filter values (#18)", async () => {
+        mockFetch.mockResolvedValueOnce(createResponse({ text: "" }));
+
+        await fetchMessages({
+            url: "https://ntfy.sh",
+            topic: "alerts",
+            messageId: "id-🔔",
+            messageTitle: "🔔 Build",
+            messageText: "terminé",
+            tags: ["🚀", "ok"],
+        });
+
+        const headers = mockFetch.mock.calls[0][1]?.headers as Record<string, string>;
+        const decode = (value: string) =>
+            Buffer.from(/^=\?UTF-8\?B\?(.*)\?=$/.exec(value)?.[1] ?? "", "base64").toString("utf8");
+        expect(decode(headers["X-ID"])).toBe("id-🔔");
+        expect(decode(headers["X-Title"])).toBe("🔔 Build");
+        expect(decode(headers["X-Message"])).toBe("terminé");
+        expect(decode(headers["X-Tags"])).toBe("🚀,ok");
+    });
+
+    it("rejects an access token that can't be sent as a header, without calling fetch", async () => {
+        await expect(
+            fetchMessages({ url: "https://ntfy.sh", topic: "alerts", token: "sk_SECRET\nX" })
+        ).rejects.toThrow(
+            "Invalid access token: it may only contain printable ASCII characters without spaces."
+        );
+        expect(mockFetch).not.toHaveBeenCalled();
+    });
+
+    it("URL-encodes `since` so it can't inject extra query parameters", async () => {
+        mockFetch.mockResolvedValueOnce(createResponse({ text: "" }));
+
+        await fetchMessages({
+            url: "https://ntfy.sh",
+            topic: "alerts",
+            since: "all&poll=0&scheduled=1",
+        });
+
+        const requested = new URL(String(mockFetch.mock.calls[0][0]));
+        expect(requested.searchParams.getAll("poll")).toEqual(["1"]);
+        expect(requested.searchParams.get("since")).toBe("all&poll=0&scheduled=1");
+        expect(requested.searchParams.has("scheduled")).toBe(false);
     });
 
     it("returns null when the ntfy response body is empty", async () => {
@@ -241,7 +284,7 @@ describe("fetchMessages", () => {
             fetchMessages({
                 url: "https://ntfy.sh",
                 topic: "alerts",
-                priorities: 3 as unknown as string | string[],
+                priorities: 3 as unknown as Parameters<typeof fetchMessages>[0]["priorities"],
             })
         ).rejects.toThrow();
 

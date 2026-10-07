@@ -1,0 +1,9 @@
+{
+  // Type-checks the tests (and test configs) without emitting; `npm run typecheck` runs it.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "rootDir": "."
+  },
+  "include": ["src/**/*", "tests/**/*", "vitest.config.ts", "vitest.e2e.config.ts"]
+}
