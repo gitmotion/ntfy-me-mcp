@@ -5,5 +5,13 @@ import { configDefaults, defineConfig } from "vitest/config";
 export default defineConfig({
     test: {
         exclude: [...configDefaults.exclude, "tests/e2e/**"],
+        // `npm run test:coverage` (CI). src/index.ts runs only in the servers
+        // that tests spawn, so it reports 0% here; the floor leaves room for that.
+        coverage: {
+            provider: "v8",
+            include: ["src/**/*.ts"],
+            reporter: ["text", "json-summary"],
+            thresholds: { statements: 75, branches: 75, functions: 75, lines: 75 },
+        },
     },
 });
