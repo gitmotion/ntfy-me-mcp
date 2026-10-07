@@ -92,3 +92,57 @@ describe("dotenv can't interfere with the MCP channel or the client's config", (
         expect(stderr).not.toContain("from-other-file");
     });
 });
+
+async function runAndExpectExit(env: Record<string, string>) {
+    const child = spawn(process.execPath, [entry], {
+        env: { PATH: process.env.PATH, ...env },
+        stdio: ["pipe", "pipe", "pipe"],
+    });
+
+    let stdout = "";
+    let stderr = "";
+    child.stdout.on("data", (chunk) => (stdout += chunk));
+    child.stderr.on("data", (chunk) => (stderr += chunk));
+
+    const code = await new Promise<number | null>((resolve) => child.once("close", resolve));
+    return { code, stdout, stderr };
+}
+
+describe("startup configuration validation", () => {
+    it("fails fast with exit code 1 when NTFY_TOPIC is missing", async () => {
+        const { code, stderr } = await runAndExpectExit({});
+        expect(code).toBe(1);
+        expect(stderr).toContain("NTFY_TOPIC environment variable is required");
+    });
+
+    it("fails fast with exit code 1 when NTFY_TOPIC contains invalid characters", async () => {
+        const { code, stderr } = await runAndExpectExit({
+            NTFY_TOPIC: "topic with spaces",
+        });
+        expect(code).toBe(1);
+        expect(stderr).toContain(
+            "Invalid NTFY_TOPIC: topic may only contain letters, numbers, underscores, and hyphens"
+        );
+    });
+
+    it("fails fast with exit code 1 when NTFY_URL is invalid", async () => {
+        const { code, stderr } = await runAndExpectExit({
+            NTFY_TOPIC: "valid_topic",
+            NTFY_URL: "not-a-url",
+        });
+        expect(code).toBe(1);
+        expect(stderr).toContain("Invalid NTFY_URL: not a valid URL");
+    });
+
+    it("fails fast and does not leak credentials when NTFY_URL embeds user:pass", async () => {
+        const { code, stderr } = await runAndExpectExit({
+            NTFY_TOPIC: "valid_topic",
+            NTFY_URL: "https://admin:secret123@ntfy.example.com",
+        });
+        expect(code).toBe(1);
+        expect(stderr).toContain("Invalid NTFY_URL: credentials in the URL are not supported");
+        expect(stderr).not.toContain("secret123");
+        expect(stderr).not.toContain("admin:secret123");
+    });
+});
+

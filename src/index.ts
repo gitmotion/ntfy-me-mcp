@@ -14,6 +14,7 @@ import {
 } from "./schemas/notifyTool.schema.js";
 import {
   isUnresolvedInputReference,
+  validateStartupConfig,
 } from "./utils/validation.js";
 import { createToolHandlers } from "./utils/toolHandlers.js";
 
@@ -49,10 +50,10 @@ const { handleNotifyTool, handleFetchTool } = createToolHandlers({
 });
 
 async function initializeServer() {
-  if (!NTFY_TOPIC) {
-    logger.error(
-      "NTFY_TOPIC environment variable is required. Please ensure it's added to your .env file or passed as an environment variable."
-    );
+  try {
+    validateStartupConfig(NTFY_TOPIC, NTFY_URL);
+  } catch (error) {
+    logger.error((error as Error).message);
     process.exit(1);
   }
 

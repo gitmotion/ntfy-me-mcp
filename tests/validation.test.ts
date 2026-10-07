@@ -5,6 +5,7 @@ import {
     isUnresolvedInputReference,
     validateNtfyTopic,
     validateNtfyUrl,
+    validateStartupConfig,
     sanitizeErrorMessage,
 } from "../src/utils/validation.js";
 import {
@@ -70,6 +71,18 @@ describe("validateNtfyUrl", () => {
     it("uses default fieldName 'ntfyUrl' when not specified", () => {
         expect(() => validateNtfyUrl("bad")).toThrow(/Invalid ntfyUrl:/);
     });
+
+    it("rejects URLs with embedded credentials", () => {
+        expect(() => validateNtfyUrl("https://user:pass@ntfy.sh")).toThrow(
+            /credentials in the URL are not supported/
+        );
+        expect(() => validateNtfyUrl("https://user@ntfy.sh")).toThrow(
+            /credentials in the URL are not supported/
+        );
+        expect(() => validateNtfyUrl("https://:pass@ntfy.sh")).toThrow(
+            /credentials in the URL are not supported/
+        );
+    });
 });
 
 describe("sanitizeErrorMessage", () => {
@@ -77,6 +90,13 @@ describe("sanitizeErrorMessage", () => {
         const err = new Error("Invalid ntfyUrl: not a valid URL.");
         expect(sanitizeErrorMessage(err, "fallback")).toBe(
             "Invalid ntfyUrl: not a valid URL."
+        );
+    });
+
+    it('passes through errors prefixed with "Invalid NTFY_URL:"', () => {
+        const err = new Error("Invalid NTFY_URL: not a valid URL.");
+        expect(sanitizeErrorMessage(err, "fallback")).toBe(
+            "Invalid NTFY_URL: not a valid URL."
         );
     });
 
@@ -278,3 +298,65 @@ describe("isUnresolvedInputReference", () => {
         expect(isUnresolvedInputReference(null)).toBe(false);
     });
 });
+
+describe("validateStartupConfig", () => {
+    it("accepts valid topic and default url", () => {
+        const config = validateStartupConfig("my-topic");
+        expect(config).toEqual({ topic: "my-topic", url: "https://ntfy.sh" });
+    });
+
+    it("accepts valid topic and custom url", () => {
+        const config = validateStartupConfig("my-topic", "http://localhost:8080");
+        expect(config).toEqual({ topic: "my-topic", url: "http://localhost:8080" });
+    });
+
+    it("trims whitespace from topic", () => {
+        const config = validateStartupConfig("  trimmed-topic  ");
+        expect(config.topic).toBe("trimmed-topic");
+    });
+
+    it("throws when topic is undefined or empty string", () => {
+        expect(() => validateStartupConfig(undefined)).toThrow(
+            "NTFY_TOPIC environment variable is required. Please ensure it's added to your .env file or passed as an environment variable."
+        );
+        expect(() => validateStartupConfig("")).toThrow(
+            "NTFY_TOPIC environment variable is required. Please ensure it's added to your .env file or passed as an environment variable."
+        );
+    });
+
+    it("throws when topic is whitespace-only", () => {
+        expect(() => validateStartupConfig("   ")).toThrow(
+            /Invalid NTFY_TOPIC: topic cannot be empty/
+        );
+    });
+
+    it("throws when topic contains invalid characters", () => {
+        expect(() => validateStartupConfig("topic with spaces")).toThrow(
+            /Invalid NTFY_TOPIC: topic may only contain letters, numbers, underscores, and hyphens/
+        );
+        expect(() => validateStartupConfig("topic/slash")).toThrow(
+            /Invalid NTFY_TOPIC: topic may only contain letters, numbers, underscores, and hyphens/
+        );
+    });
+
+    it("throws when url is invalid", () => {
+        expect(() => validateStartupConfig("my-topic", "not-a-url")).toThrow(
+            /Invalid NTFY_URL: not a valid URL/
+        );
+        expect(() => validateStartupConfig("my-topic", "ntfy.sh")).toThrow(
+            /Invalid NTFY_URL: not a valid URL/
+        );
+        expect(() => validateStartupConfig("my-topic", "ftp://ntfy.sh")).toThrow(
+            /Invalid NTFY_URL: unsupported scheme "ftp:"/
+        );
+    });
+
+    it("throws when url contains credentials", () => {
+        expect(() =>
+            validateStartupConfig("my-topic", "https://user:pass@ntfy.example.com")
+        ).toThrow(
+            "Invalid NTFY_URL: credentials in the URL are not supported. Use NTFY_TOKEN or the accessToken parameter instead."
+        );
+    });
+});
+

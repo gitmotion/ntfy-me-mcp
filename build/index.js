@@ -8,7 +8,7 @@ import { dirname, join } from "path";
 import fs from "fs";
 import { fetchToolInputSchema, } from "./schemas/fetchTool.schema.js";
 import { notifyToolInputSchema, } from "./schemas/notifyTool.schema.js";
-import { isUnresolvedInputReference, } from "./utils/validation.js";
+import { isUnresolvedInputReference, validateStartupConfig, } from "./utils/validation.js";
 import { createToolHandlers } from "./utils/toolHandlers.js";
 import { Logger } from "./utils/logger.js";
 const logger = Logger.getInstance();
@@ -37,8 +37,11 @@ const { handleNotifyTool, handleFetchTool } = createToolHandlers({
     getDefaultToken: () => NTFY_TOKEN,
 });
 async function initializeServer() {
-    if (!NTFY_TOPIC) {
-        logger.error("NTFY_TOPIC environment variable is required. Please ensure it's added to your .env file or passed as an environment variable.");
+    try {
+        validateStartupConfig(NTFY_TOPIC, NTFY_URL);
+    }
+    catch (error) {
+        logger.error(error.message);
         process.exit(1);
     }
     if (HAS_UNRESOLVED_TOKEN_INPUT && !NTFY_TOKEN) {
