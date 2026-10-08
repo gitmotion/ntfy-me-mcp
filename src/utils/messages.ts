@@ -1,4 +1,4 @@
-import fetch from 'node-fetch';
+import { encodeHeaderValue } from './headers.js';
 import { Logger } from './logger.js';
 import {
   messageDataSchema,
@@ -8,7 +8,7 @@ import {
   ntfyFetchOptionsSchema,
   type NtfyFetchOptions,
 } from '../schemas/ntfyFetchOptions.schema.js';
-import { validateNtfyTopic, validateNtfyUrl } from './validation.js';
+import { validateAccessToken, validateNtfyTopic, validateNtfyUrl } from './validation.js';
 
 const logger = Logger.getInstance();
 
@@ -33,12 +33,12 @@ export async function fetchMessages(options: NtfyFetchOptions): Promise<Record<s
       ? parsedOptions.url.slice(0, -1)
       : parsedOptions.url;
 
-    // Start with the basic endpoint
-    let endpoint = `${baseUrl}/${topic}/json?poll=1`;
+    // Build the poll URL; URLSearchParams encodes `since` so it can't add parameters
+    const endpoint = new URL(`${baseUrl}/${topic}/json`);
+    endpoint.searchParams.set('poll', '1');
 
-    // Add the since parameter if provided
     if (parsedOptions.since !== undefined && parsedOptions.since !== null) {
-      endpoint += `&since=${parsedOptions.since}`;
+      endpoint.searchParams.set('since', String(parsedOptions.since));
     }
 
     // Prepare headers
@@ -46,20 +46,21 @@ export async function fetchMessages(options: NtfyFetchOptions): Promise<Record<s
 
     // Add authorization if token is provided
     if (parsedOptions.token) {
-      headers.Authorization = `Bearer ${parsedOptions.token}`;
+      headers.Authorization = `Bearer ${validateAccessToken(parsedOptions.token)}`;
     }
 
     // Add filter headers if provided
+    // Filter values are RFC 2047-encoded when they aren't plain ASCII (see headers.ts)
     if (parsedOptions.messageId) {
-      headers['X-ID'] = parsedOptions.messageId;
+      headers['X-ID'] = encodeHeaderValue(parsedOptions.messageId);
     }
 
     if (parsedOptions.messageText) {
-      headers['X-Message'] = parsedOptions.messageText;
+      headers['X-Message'] = encodeHeaderValue(parsedOptions.messageText);
     }
 
     if (parsedOptions.messageTitle) {
-      headers['X-Title'] = parsedOptions.messageTitle;
+      headers['X-Title'] = encodeHeaderValue(parsedOptions.messageTitle);
     }
 
     if (parsedOptions.priorities) {
@@ -75,7 +76,7 @@ export async function fetchMessages(options: NtfyFetchOptions): Promise<Record<s
       const tagsValue = Array.isArray(parsedOptions.tags)
         ? parsedOptions.tags.join(',')
         : parsedOptions.tags;
-      headers['X-Tags'] = tagsValue;
+      headers['X-Tags'] = encodeHeaderValue(tagsValue);
     }
 
     // Log helpful message with filter information
@@ -92,7 +93,7 @@ export async function fetchMessages(options: NtfyFetchOptions): Promise<Record<s
     );
 
     // Make the API call
-    const response = await fetch(endpoint, { headers });
+    const response = await fetch(endpoint.toString(), { headers });
 
     if (!response.ok) {
       // Handle authentication errors

@@ -33,4 +33,7 @@ CMD ["node", "build/index.js"]
 # The following environment variables can be passed when running the container:
 # - NTFY_TOPIC: Your ntfy topic name
 # - NTFY_URL: Your ntfy server URL (default: https://ntfy.sh)
-# - NTFY_TOKEN: Authentication token for protected topics
+# - NTFY_TOKEN: Authentication token for protected topics (only sent to NTFY_URL)
+# - NTFY_TOPICS_ALLOWLIST: comma-separated topics the agent may choose from, plus NTFY_TOPIC (wins over the override below)
+# - NTFY_ALLOW_TOPIC_OVERRIDE: "true" to let the agent choose a per-call topic (default: locked to NTFY_TOPIC)
+# - NTFY_ALLOW_URL_OVERRIDE: "true" to let the agent choose a per-call server url (default: locked to NTFY_URL)

@@ -2,10 +2,15 @@ import { describe, it, expect } from "vitest";
 import { fetchToolInputSchema } from "../src/schemas/fetchTool.schema.js";
 import { notifyToolInputSchema } from "../src/schemas/notifyTool.schema.js";
 import {
+    isSameOrigin,
+    hasUnresolvedPlaceholder,
     isUnresolvedInputReference,
     validateNtfyTopic,
     validateNtfyUrl,
+    validateStartupConfig,
     sanitizeErrorMessage,
+    validateActionUrl,
+    validateClickUrl,
 } from "../src/utils/validation.js";
 import {
     createOptionalNtfyTopicSchema,
@@ -33,19 +38,19 @@ describe("validateNtfyUrl", () => {
 
     it("rejects ftp:// URLs", () => {
         expect(() => validateNtfyUrl("ftp://files.example.com")).toThrow(
-            /unsupported scheme "ftp:"/
+            /unsupported scheme\. Only http:\/\/ and https:\/\/ URLs are supported\./
         );
     });
 
     it("rejects file:// URLs", () => {
         expect(() => validateNtfyUrl("file:///etc/passwd")).toThrow(
-            /unsupported scheme "file:"/
+            /unsupported scheme\. Only http:\/\/ and https:\/\/ URLs are supported\./
         );
     });
 
     it("rejects javascript: scheme URLs", () => {
         expect(() => validateNtfyUrl("javascript:alert(1)")).toThrow(
-            /unsupported scheme "javascript:"/
+            /unsupported scheme\. Only http:\/\/ and https:\/\/ URLs are supported\./
         );
     });
 
@@ -57,6 +62,16 @@ describe("validateNtfyUrl", () => {
         expect(() => validateNtfyUrl("not-a-url")).toThrow(/not a valid URL/);
         expect(() => validateNtfyUrl("just some words")).toThrow(/not a valid URL/);
     });
+
+    // #55: the message is fixed, so nothing from the URL is echoed back.
+    it.each(["ignore-previous-instructions:SECRET", `${"x".repeat(300)}:payload`, "javascript:alert(1)"])(
+        "rejects %s without echoing any part of it",
+        (url) => {
+            expect(() => validateNtfyUrl(url, "url")).toThrow(
+                new Error("Invalid url: unsupported scheme. Only http:// and https:// URLs are supported.")
+            );
+        }
+    );
 
     it("uses custom fieldName in error message", () => {
         expect(() => validateNtfyUrl("bad", "serverUrl")).toThrow(
@@ -70,13 +85,116 @@ describe("validateNtfyUrl", () => {
     it("uses default fieldName 'ntfyUrl' when not specified", () => {
         expect(() => validateNtfyUrl("bad")).toThrow(/Invalid ntfyUrl:/);
     });
+
+    it("rejects URLs with embedded credentials", () => {
+        expect(() => validateNtfyUrl("https://user:pass@ntfy.sh")).toThrow(
+            /credentials in the URL are not supported/
+        );
+        expect(() => validateNtfyUrl("https://user@ntfy.sh")).toThrow(
+            /credentials in the URL are not supported/
+        );
+        expect(() => validateNtfyUrl("https://:pass@ntfy.sh")).toThrow(
+            /credentials in the URL are not supported/
+        );
+    });
+});
+
+describe("validateActionUrl (#29)", () => {
+    it.each(["https://example.com/run/1", "http://example.com"])("accepts %s", (url) => {
+        expect(() => validateActionUrl(url)).not.toThrow();
+    });
+
+    // Fixed messages: nothing the agent sent is echoed back.
+    it.each([
+        "javascript:alert(1)",
+        "mailto:someone@example.com",
+        "data:text/html,hi",
+        "ignore-previous-instructions:SECRET",
+        `${"x".repeat(300)}:payload`,
+    ])("rejects %s with a fixed message", (url) => {
+        expect(() => validateActionUrl(url)).toThrow(
+            new Error("Invalid action url: only http:// and https:// links are supported.")
+        );
+    });
+
+    it("rejects a value that isn't a URL with a fixed message", () => {
+        expect(() => validateActionUrl("not a url ignore-previous-instructions")).toThrow(
+            new Error("Invalid action url: not a valid URL. Only http:// and https:// links are supported.")
+        );
+    });
+
+    it("rejects embedded credentials without ntfy authentication advice", () => {
+        expect(() => validateActionUrl("https://alice:SECRET@example.com/path")).toThrow(
+            new Error("Invalid action url: links with embedded credentials are not supported.")
+        );
+    });
+});
+
+describe("validateClickUrl (#26)", () => {
+    it.each([
+        "https://example.com/run/1",
+        "http://example.com",
+        "mailto:someone@example.com",
+        "geo:37.7749,-122.4194",
+        "ntfy://ntfy.sh/mytopic",
+    ])("accepts %s", (url) => {
+        expect(() => validateClickUrl(url)).not.toThrow();
+    });
+
+    // Fixed messages: nothing the agent sent is echoed back.
+    it.each([
+        "javascript:alert(1)",
+        "data:text/html,hi",
+        "file:///etc/passwd",
+        "intent://scan/#Intent;scheme=zxing;end",
+        "ignore-previous-instructions:SECRET",
+        `${"x".repeat(300)}:payload`,
+    ])("rejects %s with a fixed message", (url) => {
+        expect(() => validateClickUrl(url)).toThrow(
+            new Error("Invalid click url: only http://, https://, mailto:, geo: and ntfy:// links are supported.")
+        );
+    });
+
+    it("rejects a value that isn't a URL with a fixed message", () => {
+        expect(() => validateClickUrl("not a url ignore-previous-instructions")).toThrow(
+            new Error("Invalid click url: not a valid URL. Only http://, https://, mailto:, geo: and ntfy:// links are supported.")
+        );
+    });
+
+    it.each(["https://alice:SECRET@example.com/path", "ntfy://alice:SECRET@ntfy.example.com/topic"])(
+        "rejects embedded credentials in %s",
+        (url) => {
+            expect(() => validateClickUrl(url)).toThrow(
+                new Error("Invalid click url: links with embedded credentials are not supported.")
+            );
+        }
+    );
 });
 
 describe("sanitizeErrorMessage", () => {
+    it("passes through Invalid click url: messages", () => {
+        const message = "Invalid click url: only http://, https://, mailto:, geo: and ntfy:// links are supported.";
+        expect(sanitizeErrorMessage(new Error(message), "fallback")).toBe(message);
+    });
+
+    it.each([
+        "Invalid action url: only http:// and https:// links are supported.",
+        "Invalid actions: at most 3 view actions are allowed per notification.",
+    ])("passes through %s", (message) => {
+        expect(sanitizeErrorMessage(new Error(message), "fallback")).toBe(message);
+    });
+
     it('passes through errors prefixed with "Invalid ntfyUrl:"', () => {
         const err = new Error("Invalid ntfyUrl: not a valid URL.");
         expect(sanitizeErrorMessage(err, "fallback")).toBe(
             "Invalid ntfyUrl: not a valid URL."
+        );
+    });
+
+    it('passes through errors prefixed with "Invalid NTFY_URL:"', () => {
+        const err = new Error("Invalid NTFY_URL: not a valid URL.");
+        expect(sanitizeErrorMessage(err, "fallback")).toBe(
+            "Invalid NTFY_URL: not a valid URL."
         );
     });
 
@@ -278,3 +396,106 @@ describe("isUnresolvedInputReference", () => {
         expect(isUnresolvedInputReference(null)).toBe(false);
     });
 });
+
+// #46: any ${…} the MCP client didn't substitute. A real ntfy token never contains "${".
+describe("hasUnresolvedPlaceholder (#46)", () => {
+    it.each(["${env:NTFY_TOKEN}", "${NTFY_TOKEN}", "${input:}", "tk_abc${SUFFIX}", "  ${X}  ", "${unclosed"])(
+        "detects %j",
+        (value) => {
+            expect(hasUnresolvedPlaceholder(value)).toBe(true);
+        }
+    );
+
+    it.each(["tk_abcdefghijklmnopqrstuvwxyz123", "$NTFY_TOKEN", "real-token-value", "", undefined, null])(
+        "returns false for %j",
+        (value) => {
+            expect(hasUnresolvedPlaceholder(value)).toBe(false);
+        }
+    );
+});
+
+describe("isSameOrigin", () => {
+    it("matches the same scheme, host and port regardless of path, case or default port", () => {
+        expect(isSameOrigin("https://NTFY.sh:443/some/path", "https://ntfy.sh")).toBe(true);
+        expect(isSameOrigin("http://localhost:8080/", "http://localhost:8080/ntfy")).toBe(true);
+    });
+
+    it("rejects a different host, scheme or port", () => {
+        expect(isSameOrigin("https://evil.example.com", "https://ntfy.sh")).toBe(false);
+        expect(isSameOrigin("http://ntfy.sh", "https://ntfy.sh")).toBe(false);
+        expect(isSameOrigin("https://ntfy.sh:8443", "https://ntfy.sh")).toBe(false);
+        expect(isSameOrigin("https://ntfy.sh.evil.example.com", "https://ntfy.sh")).toBe(false);
+    });
+
+    it("never treats two opaque (non-http) origins as the same", () => {
+        expect(isSameOrigin("file:///a", "mailto:x@example.com")).toBe(false);
+        expect(isSameOrigin("javascript:alert(1)", "data:,x")).toBe(false);
+    });
+
+    it("returns false when either value is not a valid URL", () => {
+        expect(isSameOrigin("not a url", "https://ntfy.sh")).toBe(false);
+        expect(isSameOrigin("https://ntfy.sh", "")).toBe(false);
+    });
+});
+
+describe("validateStartupConfig", () => {
+    it("accepts valid topic and default url", () => {
+        const config = validateStartupConfig("my-topic");
+        expect(config).toEqual({ topic: "my-topic", url: "https://ntfy.sh" });
+    });
+
+    it("accepts valid topic and custom url", () => {
+        const config = validateStartupConfig("my-topic", "http://localhost:8080");
+        expect(config).toEqual({ topic: "my-topic", url: "http://localhost:8080" });
+    });
+
+    it("trims whitespace from topic", () => {
+        const config = validateStartupConfig("  trimmed-topic  ");
+        expect(config.topic).toBe("trimmed-topic");
+    });
+
+    it("throws when topic is undefined or empty string", () => {
+        expect(() => validateStartupConfig(undefined)).toThrow(
+            "NTFY_TOPIC environment variable is required. Please ensure it's added to your .env file or passed as an environment variable."
+        );
+        expect(() => validateStartupConfig("")).toThrow(
+            "NTFY_TOPIC environment variable is required. Please ensure it's added to your .env file or passed as an environment variable."
+        );
+    });
+
+    it("throws when topic is whitespace-only", () => {
+        expect(() => validateStartupConfig("   ")).toThrow(
+            /Invalid NTFY_TOPIC: topic cannot be empty/
+        );
+    });
+
+    it("throws when topic contains invalid characters", () => {
+        expect(() => validateStartupConfig("topic with spaces")).toThrow(
+            /Invalid NTFY_TOPIC: topic may only contain letters, numbers, underscores, and hyphens/
+        );
+        expect(() => validateStartupConfig("topic/slash")).toThrow(
+            /Invalid NTFY_TOPIC: topic may only contain letters, numbers, underscores, and hyphens/
+        );
+    });
+
+    it("throws when url is invalid", () => {
+        expect(() => validateStartupConfig("my-topic", "not-a-url")).toThrow(
+            /Invalid NTFY_URL: not a valid URL/
+        );
+        expect(() => validateStartupConfig("my-topic", "ntfy.sh")).toThrow(
+            /Invalid NTFY_URL: not a valid URL/
+        );
+        expect(() => validateStartupConfig("my-topic", "ftp://ntfy.sh")).toThrow(
+            /Invalid NTFY_URL: unsupported scheme\. Only http:\/\/ and https:\/\/ URLs are supported\./
+        );
+    });
+
+    it("throws when url contains credentials", () => {
+        expect(() =>
+            validateStartupConfig("my-topic", "https://user:pass@ntfy.example.com")
+        ).toThrow(
+            "Invalid NTFY_URL: credentials in the URL are not supported. Use NTFY_TOKEN or the accessToken parameter instead."
+        );
+    });
+});
+
