@@ -108,4 +108,20 @@ describe('processActions', () => {
         expect(result[0].url).toBe('https://docs.example.com');
         expect(result[1].url).toBe('https://api.example.com/v2');
     });
+
+    describe('excludeUrls (#27)', () => {
+        it('excludes specified URLs from generating view actions', () => {
+            const text = 'Check image https://example.com/cat.png and doc https://example.com/doc';
+            const result = processActions(text, ['https://example.com/cat.png']);
+            expect(result).toHaveLength(1);
+            expect(result[0].url).toBe('https://example.com/doc');
+        });
+
+        it('returns empty array when all URLs are excluded', () => {
+            const text = 'Only an image: https://example.com/cat.png';
+            const result = processActions(text, ['https://example.com/cat.png']);
+            expect(result).toEqual([]);
+        });
+    });
 });
+

@@ -322,6 +322,227 @@ describe("createToolHandlers", () => {
         );
     });
 
+    describe("attachments and icon (#27)", () => {
+        it("sends explicit attach URL as X-Attach", async () => {
+            mockFetch.mockResolvedValueOnce(createResponse());
+
+            const { handleNotifyTool } = buildHandlers();
+            await handleNotifyTool({
+                title: "T",
+                message: "Here is a message",
+                topic: undefined,
+                priority: "default",
+                attach: "https://example.com/cat.jpg",
+            });
+
+            const headers = mockFetch.mock.calls[0][1]?.headers as Record<string, string>;
+            expect(headers["X-Attach"]).toBe("https://example.com/cat.jpg");
+        });
+
+        it("trims whitespace from explicit attach URL", async () => {
+            mockFetch.mockResolvedValueOnce(createResponse());
+
+            const { handleNotifyTool } = buildHandlers();
+            await handleNotifyTool({
+                title: "T",
+                message: "Here is a message",
+                topic: undefined,
+                priority: "default",
+                attach: "  https://example.com/cat.png\t",
+            });
+
+            const headers = mockFetch.mock.calls[0][1]?.headers as Record<string, string>;
+            expect(headers["X-Attach"]).toBe("https://example.com/cat.png");
+        });
+
+        it("auto-detects markdown image syntax as X-Attach", async () => {
+            mockFetch.mockResolvedValueOnce(createResponse());
+
+            const { handleNotifyTool } = buildHandlers();
+            await handleNotifyTool({
+                title: "T",
+                message: "Build completed: ![Preview](https://example.com/screenshot.png)",
+                topic: undefined,
+                priority: "default",
+            });
+
+            const headers = mockFetch.mock.calls[0][1]?.headers as Record<string, string>;
+            expect(headers["X-Attach"]).toBe("https://example.com/screenshot.png");
+        });
+
+        it("auto-detects bare image URL as X-Attach", async () => {
+            mockFetch.mockResolvedValueOnce(createResponse());
+
+            const { handleNotifyTool } = buildHandlers();
+            await handleNotifyTool({
+                title: "T",
+                message: "Check output https://example.com/chart.jpg?w=800 for results",
+                topic: undefined,
+                priority: "default",
+            });
+
+            const headers = mockFetch.mock.calls[0][1]?.headers as Record<string, string>;
+            expect(headers["X-Attach"]).toBe("https://example.com/chart.jpg?w=800");
+        });
+
+        it("prefers explicit attach over auto-detected image in message", async () => {
+            mockFetch.mockResolvedValueOnce(createResponse());
+
+            const { handleNotifyTool } = buildHandlers();
+            await handleNotifyTool({
+                title: "T",
+                message: "Image in body: https://example.com/auto.png",
+                topic: undefined,
+                priority: "default",
+                attach: "https://example.com/explicit.jpg",
+            });
+
+            const headers = mockFetch.mock.calls[0][1]?.headers as Record<string, string>;
+            expect(headers["X-Attach"]).toBe("https://example.com/explicit.jpg");
+        });
+
+        it.each(["", "   ", false as unknown as string])(
+            "sends no X-Attach when auto-detection is disabled via %j",
+            async (disabledAttach) => {
+                mockFetch.mockResolvedValueOnce(createResponse());
+
+                const { handleNotifyTool } = buildHandlers();
+                await handleNotifyTool({
+                    title: "T",
+                    message: "Image in body: https://example.com/auto.png",
+                    topic: undefined,
+                    priority: "default",
+                    attach: disabledAttach,
+                });
+
+                expect(mockFetch.mock.calls[0][1]?.headers).not.toHaveProperty("X-Attach");
+            }
+        );
+
+        it("sends no X-Attach when no image is present and attach is omitted", async () => {
+            mockFetch.mockResolvedValueOnce(createResponse());
+
+            const { handleNotifyTool } = buildHandlers();
+            await handleNotifyTool({
+                title: "T",
+                message: "Visit https://example.com/page.html",
+                topic: undefined,
+                priority: "default",
+            });
+
+            expect(mockFetch.mock.calls[0][1]?.headers).not.toHaveProperty("X-Attach");
+        });
+
+        it("does not produce a duplicate view action for the attached image URL", async () => {
+            mockFetch.mockResolvedValueOnce(createResponse());
+
+            const { handleNotifyTool } = buildHandlers();
+            await handleNotifyTool({
+                title: "T",
+                message: "Attached image: https://example.com/photo.jpg",
+                topic: undefined,
+                priority: "default",
+            });
+
+            const headers = mockFetch.mock.calls[0][1]?.headers as Record<string, string>;
+            expect(headers["X-Attach"]).toBe("https://example.com/photo.jpg");
+            expect(headers).not.toHaveProperty("X-Actions");
+        });
+
+        it("keeps other URLs as view actions while deduplicating the attachment", async () => {
+            mockFetch.mockResolvedValueOnce(createResponse());
+
+            const { handleNotifyTool } = buildHandlers();
+            await handleNotifyTool({
+                title: "T",
+                message: "Photo https://example.com/photo.png and doc https://example.com/doc",
+                topic: undefined,
+                priority: "default",
+            });
+
+            const headers = mockFetch.mock.calls[0][1]?.headers as Record<string, string>;
+            expect(headers["X-Attach"]).toBe("https://example.com/photo.png");
+            expect(headers).toHaveProperty("X-Actions");
+            const actions = JSON.parse(headers["X-Actions"]);
+            expect(actions).toEqual([
+                { action: "view", label: "Open example", url: "https://example.com/doc", clear: true },
+            ]);
+        });
+
+        it("sends explicit filename as X-Filename header", async () => {
+            mockFetch.mockResolvedValueOnce(createResponse());
+
+            const { handleNotifyTool } = buildHandlers();
+            await handleNotifyTool({
+                title: "T",
+                message: "m",
+                topic: undefined,
+                priority: "default",
+                attach: "https://example.com/cat",
+                filename: "cat_photo.png",
+            });
+
+            const headers = mockFetch.mock.calls[0][1]?.headers as Record<string, string>;
+            expect(headers["X-Filename"]).toBe("cat_photo.png");
+        });
+
+        it("sends explicit icon URL as X-Icon header", async () => {
+            mockFetch.mockResolvedValueOnce(createResponse());
+
+            const { handleNotifyTool } = buildHandlers();
+            await handleNotifyTool({
+                title: "T",
+                message: "m",
+                topic: undefined,
+                priority: "default",
+                icon: "https://example.com/icon.png",
+            });
+
+            const headers = mockFetch.mock.calls[0][1]?.headers as Record<string, string>;
+            expect(headers["X-Icon"]).toBe("https://example.com/icon.png");
+        });
+
+        it.each(["javascript:alert(1)", "https://alice:SECRET@example.com/cat.jpg"])(
+            "rejects attach %s before sending anything, with a sanitized error",
+            async (attach) => {
+                const { handleNotifyTool } = buildHandlers();
+                const result = await handleNotifyTool({
+                    title: "T",
+                    message: "m",
+                    topic: undefined,
+                    priority: "default",
+                    attach,
+                });
+
+                expect(result.isError).toBe(true);
+                expect(String(result.structuredContent?.error)).toMatch(/^Invalid attach url: /);
+                expect(String(result.structuredContent?.error)).not.toContain("SECRET");
+                expect(String(result.structuredContent?.error)).not.toContain("alert");
+                expect(mockFetch).not.toHaveBeenCalled();
+            }
+        );
+
+        it.each(["javascript:alert(1)", "https://alice:SECRET@example.com/icon.png"])(
+            "rejects icon %s before sending anything, with a sanitized error",
+            async (icon) => {
+                const { handleNotifyTool } = buildHandlers();
+                const result = await handleNotifyTool({
+                    title: "T",
+                    message: "m",
+                    topic: undefined,
+                    priority: "default",
+                    icon,
+                });
+
+                expect(result.isError).toBe(true);
+                expect(String(result.structuredContent?.error)).toMatch(/^Invalid icon url: /);
+                expect(String(result.structuredContent?.error)).not.toContain("SECRET");
+                expect(String(result.structuredContent?.error)).not.toContain("alert");
+                expect(mockFetch).not.toHaveBeenCalled();
+            }
+        );
+    });
+
     describe("topic override (#21)", () => {
         it("ignores a per-call topic and uses NTFY_TOPIC when overrides are not allowed (default)", async () => {
             mockFetch.mockResolvedValueOnce(createResponse());

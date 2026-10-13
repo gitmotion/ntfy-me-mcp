@@ -10,11 +10,14 @@ import { validateAccessToken } from "./validation.js";
 import { detectMarkdown } from "./markdown.js";
 import { fetchMessages } from "./messages.js";
 import { processActions } from "./actions.js";
+import { detectImageUrl } from "./attachments.js";
 import {
     isSameOrigin,
     sanitizeErrorMessage,
     validateNtfyTopic,
+    validateAttachUrl,
     validateClickUrl,
+    validateIconUrl,
     validateNtfyUrl,
     validateViewActions,
 } from "./validation.js";
@@ -131,6 +134,9 @@ export function createToolHandlers(config: ToolHandlerConfig = {}) {
         markdown,
         actions,
         click,
+        attach,
+        filename,
+        icon,
     }: NotifyToolInput) {
         try {
             const url = resolveUrl(customUrl);
@@ -153,10 +159,41 @@ export function createToolHandlers(config: ToolHandlerConfig = {}) {
                 headers.Priority = priority;
             }
 
+            // Resolve attachment URL (#27): explicit parameter wins, blank ("") or false
+            // explicitly disables, otherwise auto-detect from message.
+            let attachUrl: string | undefined;
+            if (attach === undefined) {
+                attachUrl = detectImageUrl(message);
+            } else if ((attach as unknown) === false || attach.trim() === "") {
+                attachUrl = undefined;
+            } else {
+                const trimmedAttach = attach.trim();
+                validateAttachUrl(trimmedAttach);
+                attachUrl = trimmedAttach;
+            }
+
+            if (attachUrl) {
+                headers["X-Attach"] = encodeHeaderValue(attachUrl);
+            }
+
+            const trimmedFilename = filename?.trim();
+            if (trimmedFilename) {
+                headers["X-Filename"] = encodeHeaderValue(trimmedFilename);
+            }
+
+            const iconUrl = icon?.trim();
+            if (iconUrl) {
+                validateIconUrl(iconUrl);
+                headers["X-Icon"] = encodeHeaderValue(iconUrl);
+            }
+
             if (actions) {
                 validateViewActions(actions);
             }
-            const viewActions = actions || processActions(message);
+            // Do not produce a duplicate view action for the attached image URL (#27).
+            const viewActions =
+                actions ||
+                processActions(message, attachUrl ? [attachUrl] : []);
             const shouldUseMarkdown =
                 markdown !== undefined ? markdown : detectMarkdown(message);
 

@@ -1,14 +1,14 @@
 import { type ViewAction } from "../schemas/viewAction.schema.js";
 
 // URL regex pattern to find URLs in text
-const URL_PATTERN = /https?:\/\/(?:www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b(?:[-a-zA-Z0-9()@:%_\+.~#?&\/=]*)/gi;
+export const URL_PATTERN = /https?:\/\/(?:www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b(?:[-a-zA-Z0-9()@:%_\+.~#?&\/=]*)/gi;
 
 /**
  * Clean a URL by removing trailing markdown-related characters
  * @param url The URL to clean
  * @returns Cleaned URL
  */
-function cleanUrl(url: string): string {
+export function cleanUrl(url: string): string {
   // Remove trailing parenthesis that might be from markdown
   if (url.endsWith(')')) {
     // Only remove if it's not part of a properly encoded URL
@@ -24,9 +24,13 @@ function cleanUrl(url: string): string {
  * Extract URLs from text and create view actions
  * 
  * @param text The text to process for URLs
+ * @param excludeUrls Optional list of URLs to exclude (e.g. attached image URL)
  * @returns Array of view actions
  */
-export function processActions(text: string): ViewAction[] {
+export function processActions(
+  text: string,
+  excludeUrls: readonly string[] = []
+): ViewAction[] {
   // Using matchAll to get all matches with their positions
   const urlMatches = Array.from(text.matchAll(new RegExp(URL_PATTERN)));
   const actions: ViewAction[] = [];
@@ -35,10 +39,13 @@ export function processActions(text: string): ViewAction[] {
     return actions;
   }
 
-  // Process URLs for actions (first 3)
+  const excluded = new Set(excludeUrls.map(u => cleanUrl(u)));
+
+  // Process URLs for actions (first 3 that aren't excluded)
   const actionUrls = urlMatches
-    .slice(0, Math.min(3, urlMatches.length))
-    .map(match => cleanUrl(match[0]));
+    .map(match => cleanUrl(match[0]))
+    .filter(url => !excluded.has(url))
+    .slice(0, 3);
 
   for (const url of actionUrls) {
     let label: string;

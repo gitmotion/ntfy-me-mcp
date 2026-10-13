@@ -69,13 +69,13 @@ The server includes intelligent features like automatic URL detection for creati
 - 🎯 **Smart Action Links**: Automatically detects URLs in messages and creates view actions
 - 🔗 **Click URLs**: Choose the link that opens when the notification is tapped
 - 📄 **Intelligent Markdown**: Auto-detects and enables markdown formatting when present
+- 🖼️ **Image URLs & Attachments**: Automatically detects image URLs in messages for inline previews, with support for explicit attachments, filenames, and notification icons
 - 🔒 **Secure**: Optional authentication with access tokens
 - 🔑 **Input Masking**: Securely store your ntfy token in your vs config!
 - 🌐 **Self-hosted Support**: Works with both ntfy.sh and self-hosted ntfy instances
 
 #### Coming soon...
 - 📨 **Email**: Send notifications to email (requires ntfy email server configuration)
-- 🖼️ **Image urls**: Intelligent image url detection to automatically include image urls in messages and notifications
 - 🏁 and more!
 
 ## Table of Contents
@@ -634,6 +634,24 @@ TypeScript typing.",
       <td valign="top">No</td>
       <td valign="top"><code>{ "click": "https://github.com/user/repo/actions/runs/123" }</code></td>
     </tr>
+    <tr>
+      <td valign="top"><code>attach</code></td>
+      <td valign="top">URL of an external attachment (e.g. image) to attach to the notification (ntfy's <a href="https://docs.ntfy.sh/publish/#attach-file-from-a-url">attach from URL</a>). Must be <code>http://</code> or <code>https://</code> without embedded credentials. Auto-detected from markdown image syntax (<code>![alt](url)</code>) or bare image URLs in the message body. A blank value (<code>""</code>) explicitly disables auto-attachment. External attachments are fetched by the client device, so the URL must be publicly reachable</td>
+      <td valign="top">No</td>
+      <td valign="top"><code>{ "attach": "https://example.com/cat.jpg" }</code></td>
+    </tr>
+    <tr>
+      <td valign="top"><code>filename</code></td>
+      <td valign="top">Custom filename for the attachment (sets the <code>X-Filename</code> header, e.g. <code>screenshot.png</code>)</td>
+      <td valign="top">No</td>
+      <td valign="top"><code>{ "filename": "screenshot.png" }</code></td>
+    </tr>
+    <tr>
+      <td valign="top"><code>icon</code></td>
+      <td valign="top">URL of an icon to display with the notification (ntfy's <a href="https://docs.ntfy.sh/publish/#icons">icons</a>). Must be <code>http://</code> or <code>https://</code> JPEG or PNG without embedded credentials. A blank value counts as not provided</td>
+      <td valign="top">No</td>
+      <td valign="top"><code>{ "icon": "https://example.com/icon.png" }</code></td>
+    </tr>
   </tbody>
 </table>
 
@@ -789,6 +807,7 @@ ntfy-me-mcp treats every tool argument as untrusted, because it comes from a mod
   - `NTFY_ALLOW_TOPIC_OVERRIDE=true` and `NTFY_ALLOW_URL_OVERRIDE=true` opt back in to any topic or server, independently. If `NTFY_TOPICS_ALLOWLIST` is also set, it wins over `NTFY_ALLOW_TOPIC_OVERRIDE`.
   - Even with url overrides on, `NTFY_TOKEN` is only ever sent to the `NTFY_URL` server. Other servers get no credentials unless the call supplies its own `accessToken`.
 - **Tokens:** prefer your client's secret input (e.g. VS Code `${input:…}`) or an environment variable over hardcoding `NTFY_TOKEN` in a config file you share.
+- **Attachments and icons:** only `http://` and `https://` URLs without embedded credentials are accepted. External attachments are fetched directly by the client device, so the URL must be publicly reachable.
 
 Found a vulnerability? Please report it privately through [GitHub security advisories](https://github.com/gitmotion/ntfy-me-mcp/security/advisories/new) rather than in a public issue.
 

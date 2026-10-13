@@ -5,7 +5,8 @@ import { validateAccessToken } from "./validation.js";
 import { detectMarkdown } from "./markdown.js";
 import { fetchMessages } from "./messages.js";
 import { processActions } from "./actions.js";
-import { isSameOrigin, sanitizeErrorMessage, validateNtfyTopic, validateClickUrl, validateNtfyUrl, validateViewActions, } from "./validation.js";
+import { detectImageUrl } from "./attachments.js";
+import { isSameOrigin, sanitizeErrorMessage, validateNtfyTopic, validateAttachUrl, validateClickUrl, validateIconUrl, validateNtfyUrl, validateViewActions, } from "./validation.js";
 const logger = Logger.getInstance();
 // Normalizes a URL for the "is this the configured server?" warning check
 // (case of scheme/host, default ports, trailing slashes). Never used for routing.
@@ -80,7 +81,7 @@ export function createToolHandlers(config = {}) {
         return { token: undefined, withheldDefaultToken: true };
     }
     const WITHHELD_TOKEN_HINT = "NTFY_TOKEN is only sent to the NTFY_URL server; pass the 'accessToken' parameter to authenticate with this server.";
-    async function handleNotifyTool({ title, message, url: customUrl, topic: customTopic, accessToken, priority, tags, markdown, actions, click, }) {
+    async function handleNotifyTool({ title, message, url: customUrl, topic: customTopic, accessToken, priority, tags, markdown, actions, click, attach, filename, icon, }) {
         try {
             const url = resolveUrl(customUrl);
             const topic = resolveTopic(customTopic);
@@ -97,10 +98,38 @@ export function createToolHandlers(config = {}) {
             if (priority) {
                 headers.Priority = priority;
             }
+            // Resolve attachment URL (#27): explicit parameter wins, blank ("") or false
+            // explicitly disables, otherwise auto-detect from message.
+            let attachUrl;
+            if (attach === undefined) {
+                attachUrl = detectImageUrl(message);
+            }
+            else if (attach === false || attach.trim() === "") {
+                attachUrl = undefined;
+            }
+            else {
+                const trimmedAttach = attach.trim();
+                validateAttachUrl(trimmedAttach);
+                attachUrl = trimmedAttach;
+            }
+            if (attachUrl) {
+                headers["X-Attach"] = encodeHeaderValue(attachUrl);
+            }
+            const trimmedFilename = filename?.trim();
+            if (trimmedFilename) {
+                headers["X-Filename"] = encodeHeaderValue(trimmedFilename);
+            }
+            const iconUrl = icon?.trim();
+            if (iconUrl) {
+                validateIconUrl(iconUrl);
+                headers["X-Icon"] = encodeHeaderValue(iconUrl);
+            }
             if (actions) {
                 validateViewActions(actions);
             }
-            const viewActions = actions || processActions(message);
+            // Do not produce a duplicate view action for the attached image URL (#27).
+            const viewActions = actions ||
+                processActions(message, attachUrl ? [attachUrl] : []);
             const shouldUseMarkdown = markdown !== undefined ? markdown : detectMarkdown(message);
             if (shouldUseMarkdown) {
                 headers["X-Markdown"] = "true";

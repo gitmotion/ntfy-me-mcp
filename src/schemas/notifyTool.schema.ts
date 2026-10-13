@@ -1,6 +1,8 @@
 import { z } from "zod";
+import { createOptionalAttachUrlSchema } from "./ntfyAttach.schema.js";
 import { createOptionalClickUrlSchema } from "./ntfyClick.schema.js";
 import { createOptionalDefaultedNtfyPrioritySchema } from "./ntfyPriority.schema.js";
+import { createOptionalIconUrlSchema } from "./ntfyIcon.schema.js";
 import { createAllowedTopicSchema, createOptionalNtfyTopicSchema } from "./ntfyTopic.schema.js";
 import { NTFY_MAX_ACTIONS } from "../utils/validation.js";
 import { viewActionSchema } from "./viewAction.schema.js";
@@ -41,15 +43,34 @@ export const notifyToolInputSchema = z.object({
     click: createOptionalClickUrlSchema(
         "Optional link opened when the notification is tapped (http://, https://, mailto:, geo: or ntfy://)"
     ),
+    attach: createOptionalAttachUrlSchema(
+        "Optional URL of an external attachment (e.g. image) to attach to the notification (http:// or https://). Blank string disables automatic image attachment"
+    ),
+    filename: z
+        .string()
+        .optional()
+        .transform((value) => value?.trim() || undefined)
+        .describe(
+            "Optional filename for the attachment (e.g. image.png). Sets the X-Filename header"
+        ),
+    icon: createOptionalIconUrlSchema(
+        "Optional URL of an icon to display with the notification (JPEG or PNG; http:// or https://)"
+    ),
 });
 
 // `topic` is optional because the tool is registered without it when topic
 // overrides are disabled (and `url` is already optional) (see createNotifyToolInputSchema).
-// `click` is optional input; its blank-to-undefined transform would otherwise
-// make the key required in the inferred output type.
-export type NotifyToolInput = Omit<z.infer<typeof notifyToolInputSchema>, "topic" | "click"> & {
+// `click`, `attach`, `icon`, `filename` have transforms that would otherwise
+// make the keys required in the inferred output type.
+export type NotifyToolInput = Omit<
+    z.infer<typeof notifyToolInputSchema>,
+    "topic" | "click" | "attach" | "icon" | "filename"
+> & {
     topic?: string;
     click?: string;
+    attach?: string;
+    icon?: string;
+    filename?: string;
 };
 
 /**

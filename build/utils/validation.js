@@ -72,6 +72,50 @@ export function validateClickUrl(url) {
     }
 }
 /**
+ * Validates an attachment link (X-Attach): http(s) only, no embedded credentials (#27).
+ * The messages are fixed, so nothing the agent sent is echoed back.
+ *
+ * @param url The link to the attachment
+ * @throws Error with an "Invalid attach url:" message if the link isn't allowed
+ */
+export function validateAttachUrl(url) {
+    let parsed;
+    try {
+        parsed = new URL(url);
+    }
+    catch {
+        throw new Error("Invalid attach url: not a valid URL. Only http:// and https:// URLs are supported.");
+    }
+    if (parsed.protocol !== "https:" && parsed.protocol !== "http:") {
+        throw new Error("Invalid attach url: only http:// and https:// URLs are supported.");
+    }
+    if (parsed.username || parsed.password) {
+        throw new Error("Invalid attach url: URLs with embedded credentials are not supported.");
+    }
+}
+/**
+ * Validates an icon link (X-Icon): http(s) only, no embedded credentials (#27).
+ * The messages are fixed, so nothing the agent sent is echoed back.
+ *
+ * @param url The link to the icon
+ * @throws Error with an "Invalid icon url:" message if the link isn't allowed
+ */
+export function validateIconUrl(url) {
+    let parsed;
+    try {
+        parsed = new URL(url);
+    }
+    catch {
+        throw new Error("Invalid icon url: not a valid URL. Only http:// and https:// URLs are supported.");
+    }
+    if (parsed.protocol !== "https:" && parsed.protocol !== "http:") {
+        throw new Error("Invalid icon url: only http:// and https:// URLs are supported.");
+    }
+    if (parsed.username || parsed.password) {
+        throw new Error("Invalid icon url: URLs with embedded credentials are not supported.");
+    }
+}
+/**
  * Enforces the view-action rules at request-building time, the same rules the
  * tool schema applies, so callers that bypass the schema can't send more.
  *
@@ -209,6 +253,8 @@ export function sanitizeErrorMessage(error, fallbackMessage) {
             error.message.startsWith("Invalid action url:") ||
             error.message.startsWith("Invalid actions:") ||
             error.message.startsWith("Invalid click url:") ||
+            error.message.startsWith("Invalid attach url:") ||
+            error.message.startsWith("Invalid icon url:") ||
             error.message.startsWith("Authentication failed when sending notification.") ||
             error.message.startsWith("Authentication failed when fetching messages.") ||
             error.message.startsWith("Failed to send ntfy notification. Status code:") ||

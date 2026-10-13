@@ -10,7 +10,9 @@ import {
     validateStartupConfig,
     sanitizeErrorMessage,
     validateActionUrl,
+    validateAttachUrl,
     validateClickUrl,
+    validateIconUrl,
 } from "../src/utils/validation.js";
 import {
     createOptionalNtfyTopicSchema,
@@ -171,6 +173,76 @@ describe("validateClickUrl (#26)", () => {
     );
 });
 
+describe("validateAttachUrl (#27)", () => {
+    it.each(["https://example.com/cat.jpg", "http://example.com/image.png"])("accepts %s", (url) => {
+        expect(() => validateAttachUrl(url)).not.toThrow();
+    });
+
+    it.each([
+        "javascript:alert(1)",
+        "mailto:someone@example.com",
+        "file:///etc/passwd",
+        "ftp://files.example.com/image.png",
+        "data:image/png;base64,abc",
+        "ignore-previous-instructions:SECRET",
+        `${"x".repeat(300)}:payload`,
+    ])("rejects %s with a fixed message", (url) => {
+        expect(() => validateAttachUrl(url)).toThrow(
+            new Error("Invalid attach url: only http:// and https:// URLs are supported.")
+        );
+    });
+
+    it("rejects a value that isn't a URL with a fixed message", () => {
+        expect(() => validateAttachUrl("not a url ignore-previous-instructions")).toThrow(
+            new Error("Invalid attach url: not a valid URL. Only http:// and https:// URLs are supported.")
+        );
+    });
+
+    it.each(["https://alice:SECRET@example.com/cat.jpg", "http://user:pass@example.com/pic.png"])(
+        "rejects embedded credentials in %s",
+        (url) => {
+            expect(() => validateAttachUrl(url)).toThrow(
+                new Error("Invalid attach url: URLs with embedded credentials are not supported.")
+            );
+        }
+    );
+});
+
+describe("validateIconUrl (#27)", () => {
+    it.each(["https://example.com/icon.png", "http://example.com/icon.jpg"])("accepts %s", (url) => {
+        expect(() => validateIconUrl(url)).not.toThrow();
+    });
+
+    it.each([
+        "javascript:alert(1)",
+        "mailto:someone@example.com",
+        "file:///etc/passwd",
+        "ftp://files.example.com/icon.png",
+        "data:image/png;base64,abc",
+        "ignore-previous-instructions:SECRET",
+        `${"x".repeat(300)}:payload`,
+    ])("rejects %s with a fixed message", (url) => {
+        expect(() => validateIconUrl(url)).toThrow(
+            new Error("Invalid icon url: only http:// and https:// URLs are supported.")
+        );
+    });
+
+    it("rejects a value that isn't a URL with a fixed message", () => {
+        expect(() => validateIconUrl("not a url ignore-previous-instructions")).toThrow(
+            new Error("Invalid icon url: not a valid URL. Only http:// and https:// URLs are supported.")
+        );
+    });
+
+    it.each(["https://alice:SECRET@example.com/icon.png", "http://user:pass@example.com/icon.jpg"])(
+        "rejects embedded credentials in %s",
+        (url) => {
+            expect(() => validateIconUrl(url)).toThrow(
+                new Error("Invalid icon url: URLs with embedded credentials are not supported.")
+            );
+        }
+    );
+});
+
 describe("sanitizeErrorMessage", () => {
     it("passes through Invalid click url: messages", () => {
         const message = "Invalid click url: only http://, https://, mailto:, geo: and ntfy:// links are supported.";
@@ -180,6 +252,10 @@ describe("sanitizeErrorMessage", () => {
     it.each([
         "Invalid action url: only http:// and https:// links are supported.",
         "Invalid actions: at most 3 view actions are allowed per notification.",
+        "Invalid attach url: only http:// and https:// URLs are supported.",
+        "Invalid attach url: URLs with embedded credentials are not supported.",
+        "Invalid icon url: only http:// and https:// URLs are supported.",
+        "Invalid icon url: URLs with embedded credentials are not supported.",
     ])("passes through %s", (message) => {
         expect(sanitizeErrorMessage(new Error(message), "fallback")).toBe(message);
     });

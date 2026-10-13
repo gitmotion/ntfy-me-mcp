@@ -182,4 +182,91 @@ describe("tool input schemas and destination overrides (#21)", () => {
             expect(messages).not.toContain("javascript");
         });
     });
+
+    // #27: optional attach and icon URLs, and filename
+    describe("attachments and icon (#27)", () => {
+        const POLICIES: [string, Parameters<typeof createNotifyToolInputSchema>[0]][] = [
+            ["locked", LOCKED],
+            ["topic override", { allowTopicOverride: true, allowUrlOverride: false }],
+            ["url override", { allowTopicOverride: false, allowUrlOverride: true }],
+            ["allowlist", { ...LOCKED, allowedTopics: ["default_topic", "alerts"] }],
+        ];
+
+        it.each(POLICIES)("ntfy_me (%s) accepts an attach URL and trims it", (_name, policy) => {
+            const schema = createNotifyToolInputSchema(policy);
+
+            expect(
+                schema.parse({ title: "T", message: "m", attach: " https://example.com/cat.jpg " })
+            ).toMatchObject({
+                attach: "https://example.com/cat.jpg",
+            });
+        });
+
+        it.each(POLICIES)("ntfy_me (%s) preserves empty/blank attach to allow explicit disable", (_name, policy) => {
+            const schema = createNotifyToolInputSchema(policy);
+
+            expect(schema.parse({ title: "T", message: "m", attach: "" }).attach).toBe("");
+            expect(schema.parse({ title: "T", message: "m", attach: "   " }).attach).toBe("");
+            expect(schema.parse({ title: "T", message: "m" }).attach).toBeUndefined();
+        });
+
+        it.each(POLICIES)("ntfy_me (%s) rejects a disallowed attach URL without echoing it", (_name, policy) => {
+            const schema = createNotifyToolInputSchema(policy);
+            const result = schema.safeParse({
+                title: "T",
+                message: "m",
+                attach: "javascript:alert('injected')",
+            });
+
+            expect(result.success).toBe(false);
+            const messages = JSON.stringify(result.error?.issues ?? []);
+            expect(messages).toContain("Invalid attach url: only http:// and https:// URLs are supported.");
+            expect(messages).not.toContain("injected");
+            expect(messages).not.toContain("javascript");
+        });
+
+        it.each(POLICIES)("ntfy_me (%s) accepts an icon URL and trims it", (_name, policy) => {
+            const schema = createNotifyToolInputSchema(policy);
+
+            expect(
+                schema.parse({ title: "T", message: "m", icon: " https://example.com/icon.png " })
+            ).toMatchObject({
+                icon: "https://example.com/icon.png",
+            });
+        });
+
+        it.each(POLICIES)("ntfy_me (%s) treats a blank icon as not provided", (_name, policy) => {
+            const schema = createNotifyToolInputSchema(policy);
+
+            expect(schema.parse({ title: "T", message: "m", icon: "" }).icon).toBeUndefined();
+            expect(schema.parse({ title: "T", message: "m", icon: "   " }).icon).toBeUndefined();
+            expect(schema.parse({ title: "T", message: "m" }).icon).toBeUndefined();
+        });
+
+        it.each(POLICIES)("ntfy_me (%s) rejects a disallowed icon URL without echoing it", (_name, policy) => {
+            const schema = createNotifyToolInputSchema(policy);
+            const result = schema.safeParse({
+                title: "T",
+                message: "m",
+                icon: "javascript:alert('injected')",
+            });
+
+            expect(result.success).toBe(false);
+            const messages = JSON.stringify(result.error?.issues ?? []);
+            expect(messages).toContain("Invalid icon url: only http:// and https:// URLs are supported.");
+            expect(messages).not.toContain("injected");
+            expect(messages).not.toContain("javascript");
+        });
+
+        it.each(POLICIES)("ntfy_me (%s) accepts filename and trims it", (_name, policy) => {
+            const schema = createNotifyToolInputSchema(policy);
+
+            expect(
+                schema.parse({ title: "T", message: "m", filename: " cat.png " })
+            ).toMatchObject({
+                filename: "cat.png",
+            });
+        });
+    });
 });
+

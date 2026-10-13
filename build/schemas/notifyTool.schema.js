@@ -1,6 +1,8 @@
 import { z } from "zod";
+import { createOptionalAttachUrlSchema } from "./ntfyAttach.schema.js";
 import { createOptionalClickUrlSchema } from "./ntfyClick.schema.js";
 import { createOptionalDefaultedNtfyPrioritySchema } from "./ntfyPriority.schema.js";
+import { createOptionalIconUrlSchema } from "./ntfyIcon.schema.js";
 import { createAllowedTopicSchema, createOptionalNtfyTopicSchema } from "./ntfyTopic.schema.js";
 import { NTFY_MAX_ACTIONS } from "../utils/validation.js";
 import { viewActionSchema } from "./viewAction.schema.js";
@@ -28,6 +30,13 @@ export const notifyToolInputSchema = z.object({
         .optional()
         .describe("Optional array of view actions to add to the notification (max 3; each url must be http:// or https://)"),
     click: createOptionalClickUrlSchema("Optional link opened when the notification is tapped (http://, https://, mailto:, geo: or ntfy://)"),
+    attach: createOptionalAttachUrlSchema("Optional URL of an external attachment (e.g. image) to attach to the notification (http:// or https://). Blank string disables automatic image attachment"),
+    filename: z
+        .string()
+        .optional()
+        .transform((value) => value?.trim() || undefined)
+        .describe("Optional filename for the attachment (e.g. image.png). Sets the X-Filename header"),
+    icon: createOptionalIconUrlSchema("Optional URL of an icon to display with the notification (JPEG or PNG; http:// or https://)"),
 });
 /**
  * Builds the ntfy_me input schema for the server's destination policy.
