@@ -5,6 +5,7 @@ import { validateAccessToken } from "./validation.js";
 import { detectMarkdown } from "./markdown.js";
 import { fetchMessages } from "./messages.js";
 import { processActions } from "./actions.js";
+import { parseBooleanEnv } from "./env.js";
 import { isSameOrigin, sanitizeErrorMessage, validateNtfyTopic, validateClickUrl, validateNtfyUrl, validateViewActions, } from "./validation.js";
 const logger = Logger.getInstance();
 // Normalizes a URL for the "is this the configured server?" warning check
@@ -22,6 +23,8 @@ export function createToolHandlers(config = {}) {
     const getDefaultTopic = parsedConfig.getDefaultTopic ?? (() => undefined);
     const getDefaultUrl = parsedConfig.getDefaultUrl ?? (() => "https://ntfy.sh");
     const getDefaultToken = parsedConfig.getDefaultToken ?? (() => undefined);
+    const getDefaultEmail = parsedConfig.getDefaultEmail ?? (() => process.env.NTFY_EMAIL);
+    const getEmailDefault = parsedConfig.getEmailDefault ?? (() => parseBooleanEnv(process.env.NTFY_EMAIL_DEFAULT));
     const allowTopicOverride = parsedConfig.allowTopicOverride ?? false;
     const allowUrlOverride = parsedConfig.allowUrlOverride ?? false;
     const allowedTopics = (parsedConfig.allowedTopics ?? []).map((topic) => topic.trim());
@@ -80,7 +83,7 @@ export function createToolHandlers(config = {}) {
         return { token: undefined, withheldDefaultToken: true };
     }
     const WITHHELD_TOKEN_HINT = "NTFY_TOKEN is only sent to the NTFY_URL server; pass the 'accessToken' parameter to authenticate with this server.";
-    async function handleNotifyTool({ title, message, url: customUrl, topic: customTopic, accessToken, priority, tags, markdown, actions, click, }) {
+    async function handleNotifyTool({ title, message, url: customUrl, topic: customTopic, accessToken, priority, tags, markdown, actions, click, email, }) {
         try {
             const url = resolveUrl(customUrl);
             const topic = resolveTopic(customTopic);
@@ -117,10 +120,19 @@ export function createToolHandlers(config = {}) {
                 validateClickUrl(clickUrl);
                 headers["X-Click"] = encodeHeaderValue(clickUrl);
             }
+            const shouldEmail = email !== undefined ? email : getEmailDefault();
+            if (shouldEmail) {
+                const emailRecipient = getDefaultEmail()?.trim();
+                if (!emailRecipient) {
+                    throw new Error("Invalid email configuration: email notification was requested, but NTFY_EMAIL is not configured.");
+                }
+                headers["X-Email"] = encodeHeaderValue(emailRecipient);
+            }
             const cleanEndpoint = endpoint.trim();
             logger.info(`Sending notification to ${cleanEndpoint}` +
                 `${shouldUseMarkdown ? " with Markdown formatting" : ""}` +
-                `${viewActions.length > 0 ? ` and ${viewActions.length} view action(s)` : ""}`);
+                `${viewActions.length > 0 ? ` and ${viewActions.length} view action(s)` : ""}` +
+                `${shouldEmail ? " and forwarding to email" : ""}`);
             const response = await fetch(cleanEndpoint, {
                 method: "POST",
                 body: message,

@@ -10,10 +10,10 @@ Guidance for AI coding agents (Codex, Claude Code, GitHub Copilot, Cursor, …) 
 
 | Tool | What it does | ntfy API used |
 |---|---|---|
-| `ntfy_me` | Publish a notification (title, message, priority, tags, markdown, view actions, click link) | `POST {url}/{topic}` with headers |
+| `ntfy_me` | Publish a notification (title, message, priority, tags, markdown, view actions, click link, email) | `POST {url}/{topic}` with headers |
 | `ntfy_me_fetch` | Poll cached messages, with optional filters | `GET {url}/{topic}/json?poll=1&since=…` with `X-*` filter headers |
 
-Configuration comes from env vars (`NTFY_TOPIC` required; `NTFY_URL` defaults to `https://ntfy.sh`; `NTFY_TOKEN` is optional; `NTFY_TOPICS_ALLOWLIST` is optional; `NTFY_ALLOW_TOPIC_OVERRIDE` and `NTFY_ALLOW_URL_OVERRIDE` default to off), loaded with `dotenv` from a local `.env` when present.
+Configuration comes from env vars (`NTFY_TOPIC` required; `NTFY_URL` defaults to `https://ntfy.sh`; `NTFY_TOKEN` is optional; `NTFY_TOPICS_ALLOWLIST` is optional; `NTFY_EMAIL` and `NTFY_EMAIL_DEFAULT` are optional; `NTFY_ALLOW_TOPIC_OVERRIDE` and `NTFY_ALLOW_URL_OVERRIDE` default to off), loaded with `dotenv` from a local `.env` when present.
 
 ## Commands
 
@@ -61,7 +61,7 @@ tests/                     Vitest suites, one per source concern (see Testing)
 build/                     compiled output; COMMITTED to git (see below)
 ```
 
-**Request flow for `ntfy_me`:** the MCP SDK validates the arguments against the schema from `createNotifyToolInputSchema()` (which leaves out `topic` / `url` unless their overrides are allowed, so a stray value is silently stripped; with `NTFY_TOPICS_ALLOWLIST`, `topic` is an enum of `NTFY_TOPIC` plus the allowlist) → `handleNotifyTool` resolves the url (always `NTFY_URL` unless `allowUrlOverride`), the topic (an allowlisted topic if one was chosen, else `NTFY_TOPIC` unless `allowTopicOverride`) and the token (a non-blank `accessToken`, else `NTFY_TOKEN` only if the url has `NTFY_URL`'s origin) → `validateNtfyUrl` / `validateNtfyTopic` → it builds headers (`Title`, `Priority`, `Tags`, `X-Markdown`, `X-Actions`, `X-Click`, `Authorization`) → `POST` → it returns `content` plus `structuredContent`. Arguments that fail the schema never reach the handler: the SDK itself returns `isError: true` with an `MCP error -32602: Input validation error` text and no `structuredContent`. Errors raised inside the handler return `isError: true`, with `structuredContent: { success: false, error }` and a message passed through `sanitizeErrorMessage`.
+**Request flow for `ntfy_me`:** the MCP SDK validates the arguments against the schema from `createNotifyToolInputSchema()` (which leaves out `topic` / `url` unless their overrides are allowed, so a stray value is silently stripped; with `NTFY_TOPICS_ALLOWLIST`, `topic` is an enum of `NTFY_TOPIC` plus the allowlist) → `handleNotifyTool` resolves the url (always `NTFY_URL` unless `allowUrlOverride`), the topic (an allowlisted topic if one was chosen, else `NTFY_TOPIC` unless `allowTopicOverride`) and the token (a non-blank `accessToken`, else `NTFY_TOKEN` only if the url has `NTFY_URL`'s origin) → `validateNtfyUrl` / `validateNtfyTopic` → it builds headers (`Title`, `Priority`, `Tags`, `X-Markdown`, `X-Actions`, `X-Click`, `X-Email`, `Authorization`) → `POST` → it returns `content` plus `structuredContent`. Arguments that fail the schema never reach the handler: the SDK itself returns `isError: true` with an `MCP error -32602: Input validation error` text and no `structuredContent`. Errors raised inside the handler return `isError: true`, with `structuredContent: { success: false, error }` and a message passed through `sanitizeErrorMessage`.
 
 **Request flow for `ntfy_me_fetch`:** the same resolution and validation → `fetchMessages` (`since` defaults to `10m`) → it parses newline-delimited JSON, drops lines that fail `messageDataSchema`, and groups the messages by topic.
 

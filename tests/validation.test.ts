@@ -172,6 +172,11 @@ describe("validateClickUrl (#26)", () => {
 });
 
 describe("sanitizeErrorMessage", () => {
+    it("passes through Invalid email configuration: messages", () => {
+        const message = "Invalid email configuration: email notification was requested, but NTFY_EMAIL is not configured.";
+        expect(sanitizeErrorMessage(new Error(message), "fallback")).toBe(message);
+    });
+
     it("passes through Invalid click url: messages", () => {
         const message = "Invalid click url: only http://, https://, mailto:, geo: and ntfy:// links are supported.";
         expect(sanitizeErrorMessage(new Error(message), "fallback")).toBe(message);

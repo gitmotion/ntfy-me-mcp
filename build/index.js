@@ -37,6 +37,8 @@ const HAS_UNRESOLVED_TOKEN_PLACEHOLDER = !HAS_UNRESOLVED_TOKEN_INPUT && hasUnres
 const NTFY_TOKEN = HAS_UNRESOLVED_TOKEN_INPUT || HAS_UNRESOLVED_TOKEN_PLACEHOLDER ? "" : RAW_NTFY_TOKEN;
 const NTFY_ALLOW_TOPIC_OVERRIDE = parseBooleanEnv(process.env.NTFY_ALLOW_TOPIC_OVERRIDE);
 const NTFY_ALLOW_URL_OVERRIDE = parseBooleanEnv(process.env.NTFY_ALLOW_URL_OVERRIDE);
+const NTFY_EMAIL = process.env.NTFY_EMAIL?.trim();
+const NTFY_EMAIL_DEFAULT = parseBooleanEnv(process.env.NTFY_EMAIL_DEFAULT);
 async function initializeServer() {
     // Validate before anything logs NTFY_URL (#30): a URL with embedded
     // credentials must never reach stderr, which clients keep in log files.
@@ -96,10 +98,18 @@ async function initializeServer() {
     logger.info(NTFY_ALLOW_URL_OVERRIDE
         ? "Server URL overrides enabled (NTFY_ALLOW_URL_OVERRIDE): tools accept a per-call url; NTFY_TOKEN is still only sent to NTFY_URL."
         : `Server locked to NTFY_URL (${NTFY_URL}). Set NTFY_ALLOW_URL_OVERRIDE=true to let tools choose a server.`);
+    if (NTFY_EMAIL) {
+        logger.info(`Email notifications configured (NTFY_EMAIL).${NTFY_EMAIL_DEFAULT ? " Defaulting all notifications to email (NTFY_EMAIL_DEFAULT=true)." : ""}`);
+    }
+    else if (NTFY_EMAIL_DEFAULT) {
+        logger.warn("NTFY_EMAIL_DEFAULT=true is set, but NTFY_EMAIL is not configured. Notifications will fail unless email: false is specified.");
+    }
     const { handleNotifyTool, handleFetchTool } = createToolHandlers({
         getDefaultTopic: () => NTFY_TOPIC,
         getDefaultUrl: () => NTFY_URL,
         getDefaultToken: () => NTFY_TOKEN,
+        getDefaultEmail: () => NTFY_EMAIL,
+        getEmailDefault: () => NTFY_EMAIL_DEFAULT,
         ...destinationPolicy,
     });
     // Create the MCP server

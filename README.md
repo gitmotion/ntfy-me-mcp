@@ -71,10 +71,10 @@ The server includes intelligent features like automatic URL detection for creati
 - 📄 **Intelligent Markdown**: Auto-detects and enables markdown formatting when present
 - 🔒 **Secure**: Optional authentication with access tokens
 - 🔑 **Input Masking**: Securely store your ntfy token in your vs config!
+- 📨 **Email Forwarding**: Forward notifications to email via `NTFY_EMAIL` (requires ntfy email server configuration)
 - 🌐 **Self-hosted Support**: Works with both ntfy.sh and self-hosted ntfy instances
 
 #### Coming soon...
-- 📨 **Email**: Send notifications to email (requires ntfy email server configuration)
 - 🖼️ **Image urls**: Intelligent image url detection to automatically include image urls in messages and notifications
 - 🏁 and more!
 
@@ -409,6 +409,17 @@ Create a `.env` file by copying the example: `cp .env.example .env` — see [`.e
 | `NTFY_ALLOW_TOPIC_OVERRIDE` | No | `false` | Set to `true` to let the agent choose a per-call `topic`. When off (the default), the `topic` parameter isn't offered to the agent and every notification and fetch uses `NTFY_TOPIC` |
 | `NTFY_TOPICS_ALLOWLIST` | No | — | Comma-separated topics you subscribe to, e.g. `alerts,builds,deploys`. When set, the agent may send to or fetch from `NTFY_TOPIC` or one of these topics, and no other topic. The `topic` parameter is offered as a list of exactly those topics. Takes precedence over `NTFY_ALLOW_TOPIC_OVERRIDE`. An invalid entry, or a value that lists no topics (e.g. `,`), stops the server at startup |
 | `NTFY_ALLOW_URL_OVERRIDE` | No | `false` | Set to `true` to let the agent choose a per-call server `url`. When off (the default), the `url` parameter isn't offered and every request goes to `NTFY_URL`. Even when on, `NTFY_TOKEN` is only sent to `NTFY_URL` |
+| `NTFY_EMAIL` | No | — | Recipient email address (e.g. `user@example.com`), or `yes` for the account's primary verified address on an authenticated ntfy server (forwarded via ntfy's `X-Email` header). Required when `email: true` is requested |
+| `NTFY_EMAIL_DEFAULT` | No | `false` | Set to `true` to automatically forward every notification to `NTFY_EMAIL` without requiring the agent to pass `email: true` (can still be opted out per-call with `email: false`) |
+
+### Email Notifications
+
+ntfy supports forwarding published notifications to an email address via the [`X-Email`](https://docs.ntfy.sh/publish/#e-mail-notifications) header. To prevent prompt-injected agents from sending messages to arbitrary email addresses, the destination email address is controlled strictly by the server operator via the `NTFY_EMAIL` environment variable.
+
+- **Account verified email:** If your ntfy server has user accounts enabled, set `NTFY_EMAIL=yes` to send to your account's primary verified email address.
+- **Explicit email address:** Set `NTFY_EMAIL=your-email@example.com` to deliver notifications to a specific inbox.
+- **Automatic forwarding:** Set `NTFY_EMAIL_DEFAULT=true` if you want all notifications forwarded to email by default.
+- **Self-hosted note:** Self-hosted ntfy servers must have SMTP sender settings (`smtp-sender-*`) configured. Public `ntfy.sh` has daily email quotas.
 
 ### Authentication
 
@@ -633,6 +644,12 @@ TypeScript typing.",
       <td valign="top">Link opened when the notification itself is tapped (ntfy's <a href="https://docs.ntfy.sh/publish/#click-action">click action</a>). Must be <code>http://</code>, <code>https://</code>, <code>mailto:</code>, <code>geo:</code> or <code>ntfy://</code>, without embedded credentials. A blank value counts as not provided</td>
       <td valign="top">No</td>
       <td valign="top"><code>{ "click": "https://github.com/user/repo/actions/runs/123" }</code></td>
+    </tr>
+    <tr>
+      <td valign="top"><code>email</code></td>
+      <td valign="top">Boolean flag to forward this notification to email via ntfy's <a href="https://docs.ntfy.sh/publish/#e-mail-notifications">X-Email</a> header. The recipient address is configured on the server via <code>NTFY_EMAIL</code>. If requested when <code>NTFY_EMAIL</code> is unset, the call fails with a validation error. Can be explicitly set to <code>false</code> to opt out when <code>NTFY_EMAIL_DEFAULT=true</code></td>
+      <td valign="top">No</td>
+      <td valign="top"><i>Default: <code>NTFY_EMAIL_DEFAULT</code> (false)</i><br/><br/><code>{ "email": true }</code></td>
     </tr>
   </tbody>
 </table>

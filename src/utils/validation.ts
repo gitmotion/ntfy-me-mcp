@@ -264,6 +264,7 @@ export function sanitizeErrorMessage(
             error.message.startsWith("Invalid action url:") ||
             error.message.startsWith("Invalid actions:") ||
             error.message.startsWith("Invalid click url:") ||
+            error.message.startsWith("Invalid email configuration:") ||
             error.message.startsWith("Authentication failed when sending notification.") ||
             error.message.startsWith("Authentication failed when fetching messages.") ||
             error.message.startsWith("Failed to send ntfy notification. Status code:") ||

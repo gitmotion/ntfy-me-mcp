@@ -41,6 +41,12 @@ export const notifyToolInputSchema = z.object({
     click: createOptionalClickUrlSchema(
         "Optional link opened when the notification is tapped (http://, https://, mailto:, geo: or ntfy://)"
     ),
+    email: z
+        .boolean()
+        .optional()
+        .describe(
+            "Optional flag to also forward this notification to email (recipient configured via NTFY_EMAIL on the server)"
+        ),
 });
 
 // `topic` is optional because the tool is registered without it when topic

@@ -10,6 +10,7 @@ import { validateAccessToken } from "./validation.js";
 import { detectMarkdown } from "./markdown.js";
 import { fetchMessages } from "./messages.js";
 import { processActions } from "./actions.js";
+import { parseBooleanEnv } from "./env.js";
 import {
     isSameOrigin,
     sanitizeErrorMessage,
@@ -36,6 +37,8 @@ export function createToolHandlers(config: ToolHandlerConfig = {}) {
     const getDefaultTopic = parsedConfig.getDefaultTopic ?? (() => undefined);
     const getDefaultUrl = parsedConfig.getDefaultUrl ?? (() => "https://ntfy.sh");
     const getDefaultToken = parsedConfig.getDefaultToken ?? (() => undefined);
+    const getDefaultEmail = parsedConfig.getDefaultEmail ?? (() => process.env.NTFY_EMAIL);
+    const getEmailDefault = parsedConfig.getEmailDefault ?? (() => parseBooleanEnv(process.env.NTFY_EMAIL_DEFAULT));
     const allowTopicOverride = parsedConfig.allowTopicOverride ?? false;
     const allowUrlOverride = parsedConfig.allowUrlOverride ?? false;
     const allowedTopics = (parsedConfig.allowedTopics ?? []).map((topic) => topic.trim());
@@ -131,6 +134,7 @@ export function createToolHandlers(config: ToolHandlerConfig = {}) {
         markdown,
         actions,
         click,
+        email,
     }: NotifyToolInput) {
         try {
             const url = resolveUrl(customUrl);
@@ -179,12 +183,24 @@ export function createToolHandlers(config: ToolHandlerConfig = {}) {
                 headers["X-Click"] = encodeHeaderValue(clickUrl);
             }
 
+            const shouldEmail = email !== undefined ? email : getEmailDefault();
+            if (shouldEmail) {
+                const emailRecipient = getDefaultEmail()?.trim();
+                if (!emailRecipient) {
+                    throw new Error(
+                        "Invalid email configuration: email notification was requested, but NTFY_EMAIL is not configured."
+                    );
+                }
+                headers["X-Email"] = encodeHeaderValue(emailRecipient);
+            }
+
             const cleanEndpoint = endpoint.trim();
 
             logger.info(
                 `Sending notification to ${cleanEndpoint}` +
                 `${shouldUseMarkdown ? " with Markdown formatting" : ""}` +
-                `${viewActions.length > 0 ? ` and ${viewActions.length} view action(s)` : ""}`
+                `${viewActions.length > 0 ? ` and ${viewActions.length} view action(s)` : ""}` +
+                `${shouldEmail ? " and forwarding to email" : ""}`
             );
 
             const response = await fetch(cleanEndpoint, {

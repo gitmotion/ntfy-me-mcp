@@ -18,6 +18,18 @@ export const toolHandlerConfigSchema = z.object({
         output: z.union([z.string(), z.undefined()]),
     })
         .optional(),
+    getDefaultEmail: z
+        .function({
+        input: [],
+        output: z.union([z.string(), z.undefined()]),
+    })
+        .optional(),
+    getEmailDefault: z
+        .function({
+        input: [],
+        output: z.boolean(),
+    })
+        .optional(),
     allowTopicOverride: z.boolean().optional(),
     allowUrlOverride: z.boolean().optional(),
     // NTFY_TOPIC plus NTFY_TOPICS_ALLOWLIST (#34). Non-empty → only these topics; wins over allowTopicOverride.

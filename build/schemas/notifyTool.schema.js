@@ -28,6 +28,10 @@ export const notifyToolInputSchema = z.object({
         .optional()
         .describe("Optional array of view actions to add to the notification (max 3; each url must be http:// or https://)"),
     click: createOptionalClickUrlSchema("Optional link opened when the notification is tapped (http://, https://, mailto:, geo: or ntfy://)"),
+    email: z
+        .boolean()
+        .optional()
+        .describe("Optional flag to also forward this notification to email (recipient configured via NTFY_EMAIL on the server)"),
 });
 /**
  * Builds the ntfy_me input schema for the server's destination policy.

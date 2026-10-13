@@ -229,3 +229,17 @@ describe("server tool list and the topic allowlist (#34)", () => {
         expect(stderr).not.toContain("running on stdio");
     });
 });
+
+describe("server tool list: email (#25)", () => {
+    it("offers email on ntfy_me as a boolean property and not on ntfy_me_fetch", async () => {
+        const tools = await listTools({});
+        const email = tools.find((tool) => tool.name === "ntfy_me")?.inputSchema.properties.email;
+
+        expect(email?.type).toBe("boolean");
+        expect(
+            Object.keys(
+                tools.find((tool) => tool.name === "ntfy_me_fetch")?.inputSchema.properties ?? {}
+            )
+        ).not.toContain("email");
+    });
+});

@@ -322,6 +322,157 @@ describe("createToolHandlers", () => {
         );
     });
 
+    describe("email forwarding (#25)", () => {
+        it("attaches X-Email header when email: true and NTFY_EMAIL is configured", async () => {
+            mockFetch.mockResolvedValueOnce(createResponse());
+
+            const { handleNotifyTool } = buildHandlers({
+                getDefaultEmail: () => "alice@example.com",
+            });
+            await handleNotifyTool({
+                title: "T",
+                message: "m",
+                topic: undefined,
+                priority: "default",
+                email: true,
+            });
+
+            const headers = mockFetch.mock.calls[0][1]?.headers as Record<string, string>;
+            expect(headers["X-Email"]).toBe("alice@example.com");
+        });
+
+        it("supports 'yes' as NTFY_EMAIL for account verified email", async () => {
+            mockFetch.mockResolvedValueOnce(createResponse());
+
+            const { handleNotifyTool } = buildHandlers({
+                getDefaultEmail: () => "yes",
+            });
+            await handleNotifyTool({
+                title: "T",
+                message: "m",
+                topic: undefined,
+                priority: "default",
+                email: true,
+            });
+
+            const headers = mockFetch.mock.calls[0][1]?.headers as Record<string, string>;
+            expect(headers["X-Email"]).toBe("yes");
+        });
+
+        it("encodes non-ASCII in NTFY_EMAIL using RFC 2047", async () => {
+            mockFetch.mockResolvedValueOnce(createResponse());
+
+            const { handleNotifyTool } = buildHandlers({
+                getDefaultEmail: () => "André <andre@example.com>",
+            });
+            await handleNotifyTool({
+                title: "T",
+                message: "m",
+                topic: undefined,
+                priority: "default",
+                email: true,
+            });
+
+            const headers = mockFetch.mock.calls[0][1]?.headers as Record<string, string>;
+            expect(headers["X-Email"]).toMatch(/^=\?UTF-8\?B\?[A-Za-z0-9+/=]*\?=$/);
+        });
+
+        it("forwards to email when NTFY_EMAIL_DEFAULT=true without explicit email parameter", async () => {
+            mockFetch.mockResolvedValueOnce(createResponse());
+
+            const { handleNotifyTool } = buildHandlers({
+                getDefaultEmail: () => "alerts@example.com",
+                getEmailDefault: () => true,
+            });
+            await handleNotifyTool({
+                title: "T",
+                message: "m",
+                topic: undefined,
+                priority: "default",
+            });
+
+            const headers = mockFetch.mock.calls[0][1]?.headers as Record<string, string>;
+            expect(headers["X-Email"]).toBe("alerts@example.com");
+        });
+
+        it("does not attach X-Email when email: false even if NTFY_EMAIL_DEFAULT=true", async () => {
+            mockFetch.mockResolvedValueOnce(createResponse());
+
+            const { handleNotifyTool } = buildHandlers({
+                getDefaultEmail: () => "alerts@example.com",
+                getEmailDefault: () => true,
+            });
+            await handleNotifyTool({
+                title: "T",
+                message: "m",
+                topic: undefined,
+                priority: "default",
+                email: false,
+            });
+
+            const headers = mockFetch.mock.calls[0][1]?.headers as Record<string, string>;
+            expect(headers).not.toHaveProperty("X-Email");
+        });
+
+        it("does not attach X-Email when email is undefined and NTFY_EMAIL_DEFAULT is false", async () => {
+            mockFetch.mockResolvedValueOnce(createResponse());
+
+            const { handleNotifyTool } = buildHandlers({
+                getDefaultEmail: () => "alerts@example.com",
+                getEmailDefault: () => false,
+            });
+            await handleNotifyTool({
+                title: "T",
+                message: "m",
+                topic: undefined,
+                priority: "default",
+            });
+
+            const headers = mockFetch.mock.calls[0][1]?.headers as Record<string, string>;
+            expect(headers).not.toHaveProperty("X-Email");
+        });
+
+        it("returns validation error when email: true is requested but NTFY_EMAIL is unset", async () => {
+            const { handleNotifyTool } = buildHandlers({
+                getDefaultEmail: () => undefined,
+            });
+            const result = await handleNotifyTool({
+                title: "T",
+                message: "m",
+                topic: undefined,
+                priority: "default",
+                email: true,
+            });
+
+            expect(result.isError).toBe(true);
+            expect(result.structuredContent).toEqual({
+                success: false,
+                error: "Invalid email configuration: email notification was requested, but NTFY_EMAIL is not configured.",
+            });
+            expect(mockFetch).not.toHaveBeenCalled();
+        });
+
+        it("returns validation error when NTFY_EMAIL_DEFAULT=true but NTFY_EMAIL is unset and email is not false", async () => {
+            const { handleNotifyTool } = buildHandlers({
+                getDefaultEmail: () => undefined,
+                getEmailDefault: () => true,
+            });
+            const result = await handleNotifyTool({
+                title: "T",
+                message: "m",
+                topic: undefined,
+                priority: "default",
+            });
+
+            expect(result.isError).toBe(true);
+            expect(result.structuredContent).toEqual({
+                success: false,
+                error: "Invalid email configuration: email notification was requested, but NTFY_EMAIL is not configured.",
+            });
+            expect(mockFetch).not.toHaveBeenCalled();
+        });
+    });
+
     describe("topic override (#21)", () => {
         it("ignores a per-call topic and uses NTFY_TOPIC when overrides are not allowed (default)", async () => {
             mockFetch.mockResolvedValueOnce(createResponse());
