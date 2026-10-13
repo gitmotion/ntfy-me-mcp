@@ -144,12 +144,13 @@ jobs:
         if: github.event_name == 'release'
         id: update_dockerhub_description
         uses: peter-evans/dockerhub-description@1b9a80c056b620d92cedb9d9b5a223409c68ddfa # v5.0.0
+        continue-on-error: true
         with:
           username: ${{ env.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
           repository: ${{ env.DOCKERHUB_IMAGE }}
           short-description: ${{ env.DOCKERHUB_DESCRIPTION }}
-          readme-filepath: ./README.md
+          readme-filepath: ./docker/README.md
 
       - name: Summarize Docker workflow
         if: ${{ always() }}
