@@ -123,6 +123,12 @@ The server includes intelligent features like automatic URL detection for creati
       </td>
     </tr>
     <tr>
+      <td><a href="#agent-skills">Agent Skills</a></td>
+      <td>
+        <a href="#available-skills">Available Skills</a>
+      </td>
+    </tr>
+    <tr>
       <td><a href="#security">Security</a></td>
       <td></td>
     </tr>
@@ -773,6 +779,30 @@ Both tools return human-readable `content` for the model and a machine-readable 
 **Invalid arguments** (a missing `title`, a malformed `topic`, an unknown `priority`, …) are rejected by the MCP SDK's schema validation before the tool runs. They come back with `isError: true` and a text-only `MCP error -32602: Input validation error: …` message that names the field and the expected format, with no `structuredContent`.
 
 **Failures inside the tool** set `isError: true` and return `{ "success": false, "error": "<message>" }`. The error message is specific for an invalid `url` or `topic`, an authentication failure (HTTP 401/403), a non-2xx status code (`... Status code: 500`), or a network failure, named with Node's error code: `... could not connect to the ntfy server (ECONNREFUSED)` when no connection was made, or `... the request to the ntfy server failed (ECONNRESET)` when it broke after connecting (the notification may have been delivered). Anything else is reported generically (`Failed to send ntfy notification` / `Failed to fetch ntfy messages`), so raw input or server text is never echoed back to the model. The full underlying error is written to the server's stderr log.
+
+## Agent Skills
+
+ntfy-me-mcp ships [Agent Skills](https://agentskills.io/specification) under [`skills/`](skills/) for AI coding assistants such as Claude Code, OpenAI Codex, GitHub Copilot / VS Code, and Cursor.
+
+Install them across your coding agents with the `skills` CLI:
+
+```bash
+# Add to current project:
+npx skills add gitmotion/ntfy-me-mcp
+
+# Or install globally for all agents on your machine:
+npx skills add -g gitmotion/ntfy-me-mcp
+```
+
+### Available Skills
+
+| Skill | Directory | Purpose |
+| --- | --- | --- |
+| `ntfy-me` | [`skills/ntfy-me`](skills/ntfy-me) | Core notification guidelines: when to notify vs not, priority levels (1–5), titles, markdown, tags, action buttons, click links, and privacy on public topics. |
+| `ntfy-me-setup` | [`skills/ntfy-me-setup`](skills/ntfy-me-setup) | Walks users through installing and configuring ntfy-me-mcp in Claude Code, VS Code (`mcp.json`), Codex (`config.toml`), and Cursor, choosing safe topics, and sending test pings. |
+| `ntfy-me-ask` | [`skills/ntfy-me-ask`](skills/ntfy-me-ask) | Human-in-the-loop workflows: ask questions via push notification and poll `ntfy_me_fetch` for user responses with safety guidelines for untrusted replies. |
+
+In addition, ntfy-me-mcp provides baseline `instructions` in the MCP `initialize` handshake, so any MCP client can guide the model even without installing local skills.
 
 ## Security
 

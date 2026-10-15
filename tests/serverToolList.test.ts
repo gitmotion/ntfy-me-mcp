@@ -14,6 +14,7 @@ type JsonRpcResponse = {
         tools?: Array<{ name: string; inputSchema: { properties: Record<string, { enum?: string[]; type?: string; anyOf?: unknown }> } }>;
         isError?: boolean;
         content?: Array<{ text: string }>;
+        instructions?: string;
     };
 };
 
@@ -112,6 +113,14 @@ async function startupFailure(extraEnv: Record<string, string>) {
 }
 
 describe("server tool list and destination overrides (#21)", () => {
+    it("sends server instructions during initialize (#44)", async () => {
+        const { responses } = await exchange({}, [{ method: "tools/list" }]);
+        const initResponse = responses.get(1);
+        expect(initResponse?.result?.instructions).toBeDefined();
+        expect(initResponse?.result?.instructions).toContain("ntfy_me");
+        expect(initResponse?.result?.instructions).toContain("secrets");
+    });
+
     it("offers neither topic nor url by default", async () => {
         const tools = await listToolProperties({});
 

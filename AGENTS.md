@@ -57,6 +57,7 @@ src/
     markdown.ts            markdown detection (regex fast path, markdown-it fallback)
     headers.ts             encodeHeaderValue(): RFC 2047-encodes non-ASCII header values (ntfy decodes them)
     logger.ts              Logger singleton (every level writes to stderr) + describeError() for log lines
+skills/                    Agent Skills (Agent Skills open standard: ntfy-me, ntfy-me-setup, ntfy-me-ask)
 tests/                     Vitest suites, one per source concern (see Testing)
 build/                     compiled output; COMMITTED to git (see below)
 ```
@@ -116,6 +117,7 @@ The compiled `build/` directory is checked in. When you change anything under `s
 
 When you change a tool parameter, a default, an env var or an error message, update:
 - `README.md`: the *Message Parameters* / *Fetch Parameters* tables, *Tool output*, *Environment Variables*
+- `skills/`: keep skill descriptions, parameters, and examples in sync with `src/schemas/`
 - `.env.example` for env vars
 - `smithery.yaml` if startup configuration changes
 - this file, if the architecture or a rule changes
